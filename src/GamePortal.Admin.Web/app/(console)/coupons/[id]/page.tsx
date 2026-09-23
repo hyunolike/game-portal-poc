@@ -108,7 +108,7 @@ export default async function CampaignDetailPage({
             {redemptions.items.map((r) => (
               <tr key={r.redemptionId}>
                 <td><Link href={`/cs?accountId=${r.accountId}`} className="table__link tabular">{r.accountId}</Link></td>
-                <td className="mono">{formatCouponCode(r.code)}</td>
+                <td className="mono">{formatCouponCode(r.code, r.campaignType)}</td>
                 <td className="nowrap">{formatKst(r.redeemedAt)}</td>
                 <td><GrantStatusChip status={r.grantStatus} /></td>
               </tr>

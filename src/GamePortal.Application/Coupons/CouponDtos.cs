@@ -56,4 +56,5 @@ public sealed record RedemptionAdminDto(
     long AccountId,
     DateTimeOffset RedeemedAt,
     Guid GrantRequestId,
-    string? GrantStatus);
+    string? GrantStatus,
+    CouponType CampaignType); // 운영툴이 코드 표기(고유 코드만 4자리 구분)를 결정하는 데 사용. 필드 추가만 하므로 하위 호환

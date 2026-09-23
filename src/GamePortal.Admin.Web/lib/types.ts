@@ -60,6 +60,7 @@ export interface Redemption {
   redeemedAt: string;
   grantRequestId: string;
   grantStatus: OutboxStatus | null;
+  campaignType: CouponType;
 }
 
 export interface OutboxStats {

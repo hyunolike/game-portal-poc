@@ -21,7 +21,7 @@ test("잘못된 일시 형식은 거부한다", () => {
   assert.throws(() => kstLocalToIso("2026/09/25 06:00"));
 });
 
-test("쿠폰 코드를 4자리마다 하이픈으로 나눈다", () => {
-  assert.equal(formatCouponCode("ABCDEFGH2345"), "ABCD-EFGH-2345");
-  assert.equal(formatCouponCode("OPEN2026"), "OPEN-2026");
+test("고유 코드만 4자리마다 하이픈으로 나누고, 공용 코드는 그대로 둔다", () => {
+  assert.equal(formatCouponCode("ABCDEFGH2345", "Unique"), "ABCD-EFGH-2345");
+  assert.equal(formatCouponCode("CHUSEOK2026", "Shared"), "CHUSEOK2026");
 });

@@ -128,6 +128,24 @@ public class CouponScenarioTests(PortalTestFixture fixture)
     }
 
     [Fact]
+    public async Task CS_조회는_사용_이력에_캠페인_유형을_함께_반환한다()
+    {
+        // 운영툴은 이 값으로 고유 코드만 ABCD-EFGH-2345 형식으로 표기한다 (공용 코드는 원문 그대로)
+        var code = NewCode();
+        await CreateSharedCampaignAsync(code, null);
+        var accountId = NextAccountId();
+        var player = await fixture.Web.CreatePlayerClientAsync(accountId);
+        (await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code))).EnsureSuccessStatusCode();
+
+        var admin = await fixture.Admin.CreateOperatorClientAsync("CS");
+        var result = await (await admin.GetAsync($"/api/v1/coupon-redemptions?accountId={accountId}")).ReadAsAsync<PagedResult<RedemptionAdminDto>>();
+
+        var row = Assert.Single(result.Items);
+        Assert.Equal(CouponType.Shared, row.CampaignType);
+        Assert.Equal(code, row.Code);
+    }
+
+    [Fact]
     public async Task 운영자가_중지한_쿠폰은_사용할_수_없다()
     {
         var code = NewCode();

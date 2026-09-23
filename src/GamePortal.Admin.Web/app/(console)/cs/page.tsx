@@ -51,7 +51,7 @@ export default async function CsPage({ searchParams }: { searchParams: Promise<{
                   <tr key={r.redemptionId}>
                     <td className="nowrap">{formatKst(r.redeemedAt)}</td>
                     <td><Link href={`/coupons/${r.campaignId}`} className="table__link">{r.campaignName}</Link></td>
-                    <td className="mono">{formatCouponCode(r.code)}</td>
+                    <td className="mono">{formatCouponCode(r.code, r.campaignType)}</td>
                     <td><GrantStatusChip status={r.grantStatus} /></td>
                     <td className="mono small muted">{r.grantRequestId}</td>
                   </tr>

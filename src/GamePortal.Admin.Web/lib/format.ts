@@ -41,7 +41,11 @@ export function formatNumber(n: number): string {
   return n.toLocaleString("ko-KR");
 }
 
-/** 쿠폰 코드 배포용 표기: ABCDEFGH2345 → ABCD-EFGH-2345 */
-export function formatCouponCode(code: string): string {
+/**
+ * 쿠폰 코드 표기. 시스템이 생성한 고유 코드만 배포 형식(ABCD-EFGH-2345)으로 나눈다.
+ * 공용 코드는 운영자가 정한 단어(CHUSEOK2026)이므로 그대로 보여준다 — 나누면 CS 가 유저에게 잘못 불러준다.
+ */
+export function formatCouponCode(code: string, type: "Shared" | "Unique"): string {
+  if (type === "Shared") return code;
   return code.match(/.{1,4}/g)?.join("-") ?? code;
 }
