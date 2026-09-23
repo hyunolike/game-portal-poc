@@ -25,14 +25,21 @@ ci: 마이그레이션 누락 검사 단계 추가
 
 ## 로컬 개발
 
+**Rider 사용 시:** 저장소의 `.run/` 공유 실행 설정으로 `0. Infra` → `All services` 를 실행한다 (README "JetBrains Rider / WebStorm으로 로컬 실행" 참고).
+API 시나리오는 `tools/http/demo.http` 를 JetBrains HTTP Client 로 실행한다.
+
+터미널 사용 시:
+
 ```bash
 # 의존성(SQL Server, Redis)만 띄우고 IDE 에서 디버깅
 docker compose up -d sqlserver redis
 
 dotnet run --project src/GamePortal.Admin.Api   # 기동 시 마이그레이션 적용 (Development)
 dotnet run --project src/GamePortal.Web.Api
+dotnet run --project src/GamePortal.Web          # 홈페이지 (http://localhost:5000)
 dotnet run --project src/GamePortal.Worker
 dotnet run --project tools/GameServer.Mock
+cd src/GamePortal.Admin.Web && npm install && npm run dev   # 운영툴 (http://localhost:3000)
 ```
 
 ### DB 마이그레이션

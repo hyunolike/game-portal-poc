@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- 인프라(0번)를 먼저 띄운 뒤 실행. Admin.Api 가 기동 시 DB 마이그레이션을 적용한다 (Development 한정) -->
+  <configuration default="false" name="All services" type="CompoundRunConfigurationType">
+    <toRun name="1. Admin.Api" type="LaunchSettings" />
+    <toRun name="2. Web.Api" type="LaunchSettings" />
+    <toRun name="3. Web (homepage)" type="LaunchSettings" />
+    <toRun name="4. Worker" type="LaunchSettings" />
+    <toRun name="5. GameServer.Mock" type="LaunchSettings" />
+    <toRun name="6. Admin.Web (ops UI)" type="js.build_tools.npm" />
+    <method v="2" />
+  </configuration>
+</component>
