@@ -1,4 +1,5 @@
 # 로컬 통합 실행 환경: docker compose up --build
+# 홈페이지     http://localhost:5000
 # Web API     http://localhost:5100/swagger
 # Admin API   http://localhost:5200/swagger
 # GameServer  http://localhost:5300 (mock)
@@ -52,6 +53,15 @@ services:
     depends_on:
       admin-api: { condition: service_started }
       redis: { condition: service_healthy }
+
+  web:
+    build: { context: ., args: { PROJECT: src/GamePortal.Web } }
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development   # 개발용 로그인 페이지 활성화
+      PortalApi__BaseUrl: "http://web-api:8080"
+    ports: ["5000:8080"]
+    depends_on:
+      web-api: { condition: service_started }
 
   worker:
     build: { context: ., args: { PROJECT: src/GamePortal.Worker } }

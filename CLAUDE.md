@@ -4,7 +4,7 @@ AI 코딩 에이전트(Claude Code)가 이 저장소에서 작업할 때 따르�
 
 ## 프로젝트
 
-게임 홈페이지(Web.Api) + 운영툴(Admin.Api) + Outbox Worker. .NET 8, SQL Server, Redis.
+게임 홈페이지(Web: Razor Pages) + 유저 API(Web.Api) + 운영툴(Admin.Api) + Outbox Worker. .NET 8, SQL Server, Redis.
 설계 배경은 `docs/ARCHITECTURE.md`, 리뷰 기준은 `docs/CODE_REVIEW.md`.
 
 ## 명령어
@@ -22,6 +22,9 @@ dotnet tool restore && dotnet ef migrations add <Name> -p src/GamePortal.Infrast
 ## 코드 규칙
 
 - **레이어 의존 방향**: Domain ← Application ← Infrastructure ← AspNetCore ← Web/Admin/Worker. 역방향 참조 금지.
+- **홈페이지(`GamePortal.Web`)는 서버 프로젝트를 참조하지 않는다.** Web.Api HTTP 계약만 사용 (`ApiClient/`).
+  - 유저 문구는 에러 코드로 분기 (`CouponMessages`). 서버에 쿠폰 에러 코드를 추가하면 문구도 추가 (계약 테스트가 검사).
+  - 사용자 입력/운영 콘텐츠는 Razor 인코딩 그대로 출력. `Html.Raw` 금지.
 - **도메인 규칙은 엔티티 메서드에.** 서비스는 조율만 한다. 엔티티 setter 는 `private`.
 - **에러**: 비즈니스 오류는 `DomainException(DomainError)`. 새 에러 코드는 `XxxErrors` 정적 클래스에 추가. 기존 코드 값 변경 금지(클라이언트 계약).
 - **검증**: 요청 DTO 는 FluentValidation `AbstractValidator<T>` (Application 어셈블리에 두면 자동 등록).

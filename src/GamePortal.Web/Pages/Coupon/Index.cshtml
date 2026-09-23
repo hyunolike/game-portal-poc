@@ -1,0 +1,67 @@
+@page "/coupon"
+@model GamePortal.Web.Pages.Coupon.IndexModel
+@{
+    ViewData["Title"] = "쿠폰 등록";
+}
+
+<div class="container page coupon-page">
+    <h1 class="page__title">쿠폰 등록</h1>
+    <p class="page__lede">쿠폰 보상은 <strong>게임 내 우편함</strong>으로 지급됩니다. 접속 중이라면 우편함을 새로고침해 주세요.</p>
+
+    <form method="post" class="coupon-form" novalidate>
+        <label for="Code" class="coupon-form__label">쿠폰 번호</label>
+        <div class="coupon-form__row">
+            <input asp-for="Code" id="Code" class="coupon-form__input" placeholder="XXXX-XXXX-XXXX"
+                   autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="30" />
+            <button type="submit" class="btn btn--primary">등록</button>
+        </div>
+        <span asp-validation-for="Code" class="field-error"></span>
+    </form>
+
+    @if (Model.Redeemed is { } r)
+    {
+        <section class="result result--ok" role="status" aria-live="polite">
+            <h2>쿠폰이 등록되었습니다</h2>
+            <p class="result__campaign">@r.CampaignName</p>
+            <ul class="rewards">
+                @foreach (var item in r.Rewards)
+                {
+                    <li><span>@ItemCatalog.NameOf(item.ItemId)</span><span class="rewards__qty">× @item.Quantity.ToString("N0")</span></li>
+                }
+            </ul>
+            <p class="result__hint">우편함 도착까지 최대 몇 분이 걸릴 수 있습니다.</p>
+        </section>
+    }
+    else if (Model.ErrorMessage is { } error)
+    {
+        <section class="result result--error" role="alert">
+            <p>@error</p>
+            @if (Model.ErrorTraceId is { } traceId)
+            {
+                <p class="result__trace">고객센터 문의 시 오류 번호를 알려 주세요: <code>@traceId</code></p>
+            }
+        </section>
+    }
+
+    <section class="history" aria-labelledby="history-title">
+        <h2 id="history-title">쿠폰 사용 내역</h2>
+        @if (Model.History is null || Model.History.Items.Count == 0)
+        {
+            <p class="empty">아직 사용한 쿠폰이 없습니다.</p>
+        }
+        else
+        {
+            <table class="history__table">
+                <thead>
+                    <tr><th scope="col">쿠폰</th><th scope="col">등록 일시 (KST)</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var h in Model.History.Items)
+                    {
+                        <tr><td>@h.CampaignName</td><td class="num">@NoticeDisplay.DateTime(h.RedeemedAt)</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+</div>

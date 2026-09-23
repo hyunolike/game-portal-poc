@@ -1,6 +1,6 @@
 extern alias AdminApi;
 extern alias WebApi;
-
+extern alias WebFront;
 using GamePortal.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -12,11 +12,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Testcontainers.MsSql;
+using PortalApiClient = WebFront::GamePortal.Web.ApiClient.PortalApiClient;
 
 namespace GamePortal.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// 실제 SQL Server 컨테이너 1개 + Web/Admin API 인스턴스.
+/// 실제 SQL Server 컨테이너 1개 + Web/Admin API 인스턴스 + 홈페이지 프론트.
 /// 동시성(조건부 UPDATE, UNIQUE 인덱스, 락 힌트)은 InMemory/SQLite 로는 검증할 수 없으므로 실제 DB 를 쓴다.
 /// </summary>
 public sealed class PortalTestFixture : IAsyncLifetime
@@ -37,6 +38,9 @@ public sealed class PortalTestFixture : IAsyncLifetime
 
     public WebApplicationFactory<AdminApi::Program> Admin { get; private set; } = null!;
 
+    /// <summary>홈페이지(Razor Pages). API 호출은 인메모리 Web.Api 서버로 연결된다.</summary>
+    public WebApplicationFactory<WebFront::Program> Front { get; private set; } = null!;
+
     public async Task InitializeAsync()
     {
         await _sql.StartAsync();
@@ -52,6 +56,14 @@ public sealed class PortalTestFixture : IAsyncLifetime
 
         Web = new WebApplicationFactory<WebApi::Program>().WithWebHostBuilder(b => Configure(b, WebSigningKey));
         Admin = new WebApplicationFactory<AdminApi::Program>().WithWebHostBuilder(b => Configure(b, AdminSigningKey));
+        Front = new WebApplicationFactory<WebFront::Program>().WithWebHostBuilder(b =>
+        {
+            b.UseEnvironment("Testing");
+            b.UseSetting("PortalApi:BaseUrl", "http://web-api.test");
+            b.ConfigureTestServices(services => services
+                .AddHttpClient<PortalApiClient>()
+                .ConfigurePrimaryHttpMessageHandler(() => Web.Server.CreateHandler()));
+        });
     }
 
     public PortalDbContext CreateDbContext() =>
@@ -67,6 +79,11 @@ public sealed class PortalTestFixture : IAsyncLifetime
         if (Admin is not null)
         {
             await Admin.DisposeAsync();
+        }
+
+        if (Front is not null)
+        {
+            await Front.DisposeAsync();
         }
 
         await _sql.DisposeAsync();

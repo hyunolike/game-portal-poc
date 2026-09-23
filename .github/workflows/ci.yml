@@ -93,6 +93,7 @@ jobs:
     strategy:
       matrix:
         service:
+          - { name: web, project: src/GamePortal.Web }
           - { name: web-api, project: src/GamePortal.Web.Api }
           - { name: admin-api, project: src/GamePortal.Admin.Api }
           - { name: worker, project: src/GamePortal.Worker }

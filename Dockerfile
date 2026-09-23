@@ -14,6 +14,7 @@ COPY src/GamePortal.Infrastructure/*.csproj src/GamePortal.Infrastructure/
 COPY src/GamePortal.AspNetCore/*.csproj src/GamePortal.AspNetCore/
 COPY src/GamePortal.Web.Api/*.csproj src/GamePortal.Web.Api/
 COPY src/GamePortal.Admin.Api/*.csproj src/GamePortal.Admin.Api/
+COPY src/GamePortal.Web/*.csproj src/GamePortal.Web/
 COPY src/GamePortal.Worker/*.csproj src/GamePortal.Worker/
 COPY tools/GameServer.Mock/*.csproj tools/GameServer.Mock/
 RUN dotnet restore "${PROJECT}"

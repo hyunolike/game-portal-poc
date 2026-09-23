@@ -1,0 +1,12 @@
+@page "/status/{code:int}"
+@{
+    // 라우트 값은 문자열로 들어온다 (int 캐스팅 불가)
+    _ = int.TryParse(RouteData.Values["code"]?.ToString(), out var code);
+    var notFound = code == 404;
+    ViewData["Title"] = notFound ? "페이지를 찾을 수 없습니다" : "오류";
+}
+<div class="container page">
+    <h1 class="page__title">@(notFound ? "페이지를 찾을 수 없습니다" : "요청을 처리하지 못했습니다")</h1>
+    <p class="page__lede">@(notFound ? "삭제되었거나 아직 게시되지 않은 글일 수 있습니다." : "잠시 후 다시 시도해 주세요.")</p>
+    <a class="btn btn--ghost" href="/">홈으로</a>
+</div>

@@ -1,6 +1,6 @@
 # 아키텍처 설계서
 
-게임 홈페이지 + 운영툴 백엔드 PoC. "쿠폰 입력 → 게임 내 우편함 지급"이라는 게임 웹의 대표 시나리오를
+게임 홈페이지(화면 + API) + 운영툴 백엔드 PoC. "쿠폰 입력 → 게임 내 우편함 지급"이라는 게임 웹의 대표 시나리오를
 실무 수준의 동시성·정합성·운영성으로 구현하는 것을 목표로 한다.
 
 ## 1. 시스템 구성
@@ -8,11 +8,12 @@
 ```mermaid
 flowchart LR
     subgraph Client
-        U[유저 브라우저 / 런처]
-        O[운영자 (사내망)]
+        U["유저 브라우저 / 런처"]
+        O["운영자 (사내망)"]
     end
 
     subgraph GamePortal
+        F["Web (Razor Pages)<br/>홈페이지 · BFF"]
         W[Web.Api<br/>유저 대면]
         A[Admin.Api<br/>운영툴]
         K[Worker<br/>Outbox Dispatcher]
@@ -22,8 +23,10 @@ flowchart LR
     R[(Redis<br/>분산 캐시)]
     G[게임 서버<br/>우편함 API]
 
-    U -- JWT(게임 플랫폼) --> W
-    O -- JWT(사내 SSO) --> A
+    U -- "HttpOnly 쿠키" --> F
+    F -- "Bearer JWT" --> W
+    U -. "런처 등 직접 호출" .-> W
+    O -- "JWT (사내 SSO)" --> A
     W --> DB
     W --> R
     A --> DB
@@ -34,6 +37,7 @@ flowchart LR
 
 | 프로세스 | 역할 | 스케일 전략 |
 |---|---|---|
+| **Web** | 홈페이지 화면 (메인, 공지 게시판, 쿠폰 등록). Web.Api 만 호출하는 BFF | 수평 확장 (무상태, 쿠키 키는 공유 필요) |
 | **Web.Api** | 공지 조회, 쿠폰 사용, 내 쿠폰 내역 | 수평 확장 (무상태). 트래픽 대부분 |
 | **Admin.Api** | 공지 CRUD, 쿠폰 발행/중지/CSV 추출, CS 조회, 지급 실패 재처리, 감사 로그 | 1~2대. 사내망 전용 |
 | **Worker** | Outbox → 게임 서버 전달 | 수평 확장 가능 (행 잠금 기반 분산 처리) |
@@ -51,7 +55,12 @@ Application     ← 유스케이스 서비스, DTO, 검증(FluentValidation), �
 Infrastructure  ← EF Core, Dapper, Redis, HttpClient(게임 서버), Outbox 처리기
 AspNetCore      ← 두 API 공통 호스팅 구성
 Web.Api / Admin.Api / Worker ← 조립(Composition root) + Controller
+
+Web (홈페이지)  ← 어떤 서버 프로젝트도 참조하지 않음. Web.Api 의 HTTP 계약만 사용
 ```
+
+- **홈페이지를 API 뒤에 둔 이유**: 화면과 API 를 독립 배포할 수 있고, 게임 런처/모바일 앱도 같은 API 를 쓴다.
+  홈페이지가 도메인/DB 를 직접 참조하면 비즈니스 규칙이 두 곳으로 갈라진다.
 
 - **Repository 패턴을 한 겹 더 두지 않았다.** EF Core `DbContext` 자체가 Repository + Unit of Work 이고,
   `IQueryable` 을 감추면 프로젝션/인덱스 튜닝이 어려워진다. 대신 `IPortalDbContext` 인터페이스로 경계를 둔다.
@@ -145,6 +154,9 @@ sequenceDiagram
 - **CSV 추출**: `IAsyncEnumerable` 스트리밍으로 메모리에 전체를 올리지 않는다.
 
 ## 6. 대용량 대비 (PoC 범위 밖, 확장 로드맵)
+
+> 홈페이지 다중 인스턴스 운영 시 ASP.NET Core Data Protection 키를 공유 저장소(Redis/Blob)에 두어야
+> 인스턴스 간 인증 쿠키·Antiforgery 토큰이 호환된다. (PoC 는 단일 인스턴스 기준)
 
 | 이슈 | 현재 | 확장 방안 |
 |---|---|---|

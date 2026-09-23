@@ -13,9 +13,10 @@
     <PackageReference Include="Testcontainers.MsSql" />
   </ItemGroup>
   <ItemGroup>
-    <!-- 두 API 모두 top-level Program 을 가지므로 alias 로 구분한다 -->
+    <!-- 세 웹 프로젝트 모두 top-level Program 을 가지므로 alias 로 구분한다 -->
     <ProjectReference Include="..\..\src\GamePortal.Web.Api\GamePortal.Web.Api.csproj" Aliases="WebApi" />
     <ProjectReference Include="..\..\src\GamePortal.Admin.Api\GamePortal.Admin.Api.csproj" Aliases="AdminApi" />
+    <ProjectReference Include="..\..\src\GamePortal.Web\GamePortal.Web.csproj" Aliases="WebFront" />
     <ProjectReference Include="..\..\src\GamePortal.Infrastructure\GamePortal.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>

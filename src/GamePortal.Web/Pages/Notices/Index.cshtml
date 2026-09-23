@@ -1,0 +1,60 @@
+@page
+@model GamePortal.Web.Pages.Notices.IndexModel
+@{
+    ViewData["Title"] = "공지사항";
+    var result = Model.Result;
+    const int window = 5;
+    var first = Math.Max(1, result.Page - window / 2);
+    var last = Math.Min(result.TotalPages, first + window - 1);
+}
+
+<div class="container page">
+    <h1 class="page__title">공지사항</h1>
+
+    <nav class="tabs" aria-label="분류">
+        @foreach (var tab in GamePortal.Web.Pages.Notices.IndexModel.Tabs)
+        {
+            <a href="@Model.PageUrl(1, tab)" class="tabs__item @(tab == Model.Category ? "is-active" : null)"
+               aria-current="@(tab == Model.Category ? "page" : null)">
+                @(tab is null ? "전체" : NoticeDisplay.Label(tab.Value))
+            </a>
+        }
+    </nav>
+
+    @if (result.Items.Count == 0)
+    {
+        <p class="empty">등록된 글이 없습니다.</p>
+    }
+    else
+    {
+        <ul class="notice-list notice-list--board">
+            @foreach (var n in result.Items)
+            {
+                <li class="notice-row @(n.IsPinned ? "is-pinned" : null)">
+                    <span class="@NoticeDisplay.CssClass(n.Category)">@NoticeDisplay.Label(n.Category)</span>
+                    <a class="notice-row__title" href="/notices/@n.Id">@n.Title</a>
+                    <time class="notice-row__date" datetime="@n.PublishAt.ToString("O")">@NoticeDisplay.Date(n.PublishAt)</time>
+                </li>
+            }
+        </ul>
+
+        @if (result.TotalPages > 1)
+        {
+            <nav class="pager" aria-label="페이지">
+                @if (result.Page > 1)
+                {
+                    <a href="@Model.PageUrl(result.Page - 1, Model.Category)" aria-label="이전 페이지">‹</a>
+                }
+                @for (var p = first; p <= last; p++)
+                {
+                    <a href="@Model.PageUrl(p, Model.Category)" class="@(p == result.Page ? "is-active" : null)"
+                       aria-current="@(p == result.Page ? "page" : null)">@p</a>
+                }
+                @if (result.Page < result.TotalPages)
+                {
+                    <a href="@Model.PageUrl(result.Page + 1, Model.Category)" aria-label="다음 페이지">›</a>
+                }
+            </nav>
+        }
+    }
+</div>
