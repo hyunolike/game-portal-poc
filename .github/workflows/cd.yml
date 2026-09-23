@@ -1,0 +1,135 @@
+name: CD
+
+# main 머지 → staging 자동 배포 / v* 태그 → production (승인 필요)
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false  # 배포는 중간에 끊지 않는다
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  publish-images:
+    name: Publish image (${{ matrix.service.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - { name: web-api, project: src/GamePortal.Web.Api }
+          - { name: admin-api, project: src/GamePortal.Admin.Api }
+          - { name: worker, project: src/GamePortal.Worker }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}
+          tags: |
+            type=sha,format=long
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          build-args: PROJECT=${{ matrix.service.project }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
+
+  # DB 스키마 변경은 애플리케이션 배포와 분리된 단계로 실행한다 (앱 기동 시 자동 마이그레이션 금지)
+  migration-bundle:
+    name: Build EF migration bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet tool restore
+      - name: Build bundle
+        run: >
+          dotnet ef migrations bundle
+          -p src/GamePortal.Infrastructure -s src/GamePortal.Infrastructure
+          --self-contained -r linux-x64 -o ./efbundle --force
+      - name: Generate idempotent SQL (DBA 리뷰용)
+        run: >
+          dotnet ef migrations script --idempotent
+          -p src/GamePortal.Infrastructure -s src/GamePortal.Infrastructure -o ./migration.sql
+      - uses: actions/upload-artifact@v4
+        with:
+          name: migrations
+          path: |
+            efbundle
+            migration.sql
+
+  deploy-staging:
+    name: Deploy → staging
+    if: ${{ github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true' }}
+    needs: [publish-images, migration-bundle]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: migrations }
+      - name: Apply DB migrations
+        run: |
+          chmod +x ./efbundle
+          ./efbundle --connection "${{ secrets.PORTAL_DB_CONNECTION }}"
+      - name: Roll out
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+          TAG: sha-${{ github.sha }}
+        run: |
+          echo "$KUBECONFIG_DATA" | base64 -d > kubeconfig && export KUBECONFIG=$PWD/kubeconfig
+          for svc in web-api admin-api worker; do
+            kubectl -n game-portal set image deployment/$svc app=${IMAGE_PREFIX}/$svc:$TAG
+          done
+          for svc in web-api admin-api worker; do
+            kubectl -n game-portal rollout status deployment/$svc --timeout=5m
+          done
+      - name: Smoke test
+        run: curl --fail --retry 5 --retry-delay 5 "${{ vars.STAGING_WEB_URL }}/health/ready"
+
+  deploy-production:
+    name: Deploy → production
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && vars.DEPLOY_ENABLED == 'true' }}
+    needs: [publish-images, migration-bundle]
+    runs-on: ubuntu-latest
+    environment: production   # GitHub Environment 보호 규칙: 필수 승인자 지정
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: migrations }
+      - name: Apply DB migrations
+        run: |
+          chmod +x ./efbundle
+          ./efbundle --connection "${{ secrets.PORTAL_DB_CONNECTION }}"
+      - name: Roll out
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          echo "$KUBECONFIG_DATA" | base64 -d > kubeconfig && export KUBECONFIG=$PWD/kubeconfig
+          VERSION="${TAG#v}"
+          for svc in web-api admin-api worker; do
+            kubectl -n game-portal set image deployment/$svc app=${IMAGE_PREFIX}/$svc:$VERSION
+            kubectl -n game-portal rollout status deployment/$svc --timeout=10m
+          done

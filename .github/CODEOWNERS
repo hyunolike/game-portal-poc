@@ -1,0 +1,7 @@
+# 기본 리뷰어
+*                                   @hyunolike
+
+# 재화/보상 로직, DB 스키마는 반드시 도메인 담당자 리뷰
+/src/GamePortal.Application/Coupons/        @hyunolike
+/src/GamePortal.Infrastructure/Persistence/ @hyunolike
+/.github/workflows/                         @hyunolike
