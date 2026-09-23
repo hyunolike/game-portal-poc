@@ -1,175 +1,429 @@
 # Game Portal PoC
 
-게임 홈페이지 + 운영툴 풀스택 PoC (.NET 8 / Razor Pages / Next.js / SQL Server / Redis / GitHub Actions)
+**English** | [한국어](README.ko.md)
 
-"**쿠폰 입력 → 게임 내 우편함 지급**", "**운영툴에서 공지 작성 → 홈페이지 즉시 반영**" 같은
-게임 웹서비스의 대표 시나리오를 실무 수준의 **동시성 제어 · 데이터 정합성 · 운영성 · 배포 자동화**로 구현했다.
+[![CI](https://github.com/hyunolike/game-portal-poc/actions/workflows/ci.yml/badge.svg)](https://github.com/hyunolike/game-portal-poc/actions/workflows/ci.yml)
+![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
+![Next.js 15](https://img.shields.io/badge/Next.js-15-000000)
+![SQL Server 2022](https://img.shields.io/badge/SQL%20Server-2022-CC2927)
 
-| 홈페이지 | 쿠폰 등록 | 모바일 |
-|---|---|---|
-| ![홈](docs/images/homepage-home.png) | ![쿠폰](docs/images/homepage-coupon.png) | ![모바일](docs/images/homepage-mobile.png) |
+A full-stack proof of concept for a **game website + operations (admin) tool**, built the way a production game-web team would build it.
 
-| 운영툴 대시보드 | 쿠폰 발행 | 감사 로그 |
-|---|---|---|
-| ![대시보드](docs/images/admin-dashboard.png) | ![쿠폰 발행](docs/images/admin-coupon-new.png) | ![감사 로그](docs/images/admin-audit-log.png) |
+It covers the two scenarios that define most game web services:
 
-> 설계 상세: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · 리뷰 가이드: [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md) · 개발 프로세스: [CONTRIBUTING.md](CONTRIBUTING.md)
+- **"Enter a coupon on the website, receive items in the in-game mailbox."** First-come-first-served limits must hold under concurrent load, and the reward must reach the game server exactly once.
+- **"An operator publishes a notice, and the website shows it immediately."** Reads are heavily cached, but cache invalidation still has to be instant.
 
-## 채용공고 ↔ PoC 매핑
+The fictional game is **ETHERFALL**. The UI is in Korean because the target service is a Korean game portal.
 
-| 채용공고 항목 | 이 PoC 에서 보여주는 것 | 위치 |
-|---|---|---|
-| 게임에 필요한 **웹사이트** 개발 | 홈페이지(Razor Pages, 서버 렌더링): 메인·공지 게시판·쿠폰 등록·반응형. 공지 조회(분산 캐시)·쿠폰 사용 API | `src/GamePortal.Web`, `src/GamePortal.Web.Api` |
-| 웹사이트 관리 **운영툴** 개발 | 운영툴 화면(Next.js): 대시보드·공지 관리·쿠폰 발행/중지/CSV·CS 조회·지급 재처리·감사 로그, 역할별 메뉴. API: 10만 건 BulkCopy, CSV 스트리밍, 역할 기반 권한 | `src/GamePortal.Admin.Web`, `src/GamePortal.Admin.Api` |
-| **.NET 6.0 이상** 웹서비스 | .NET 8, ASP.NET Core, EF Core 8, Minimal hosting, `IExceptionHandler`, `TimeProvider`, Rate Limiter | 전체 |
-| **RDBMS** 개발·운영 | SQL Server: 조건부 UPDATE 동시성, UNIQUE 제약, 필터드/커버링 인덱스, HiLo 시퀀스, JSON 컬럼, `UPDLOCK+READPAST`, EF 마이그레이션 | `Infrastructure/Persistence`, `Outbox` |
-| **RESTful API** 설계 | 리소스 중심 URL, 상태코드 규약, RFC 7807 ProblemDetails + 에러 코드, 페이징, `Idempotency-Key` | Controllers, `GlobalExceptionHandler` |
-| **서버 아키텍처 / 데이터 흐름** | Web / Admin / Worker 분리, Transactional Outbox, 캐시 무효화 흐름 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| **Git** 프로젝트 관리 | GitHub Flow, Conventional Commits, PR 템플릿, CODEOWNERS, Dependabot | `.github/`, `CONTRIBUTING.md` |
-| (우대) **코드 리뷰 문화 / 프로세스 개선** | 리뷰 체크리스트·코멘트 등급, 스타일은 CI 가 강제(`dotnet format`, 경고=에러), 마이그레이션 누락 자동 검사 | `docs/CODE_REVIEW.md`, `.editorconfig` |
-| (우대) **대용량 웹서비스** | 선착순 동시성, Redis 캐시(fail-open, negative caching), Rate limiting, 스트리밍, 확장 로드맵 | ARCHITECTURE §3, §4, §6 |
-| (우대) **CI/CD 배포 자동화** | CI(포맷→빌드→마이그레이션 검사→단위→통합(Testcontainers)→Docker) / CD(GHCR 푸시→EF 번들→staging 자동→prod 승인) | `.github/workflows/` |
-| (우대) **AI 도구 실무 통합** | PR 마다 Claude 1차 리뷰, 에이전트용 컨벤션(`CLAUDE.md`), AI 활용 가이드 | `claude-code-review.yml`, `CLAUDE.md` |
+> The design rationale is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). The review guide is [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md), and the development process is [CONTRIBUTING.md](CONTRIBUTING.md). These three documents are in Korean.
 
-## 구조
+---
 
+## Screenshots
+
+### Game website (Razor Pages)
+
+| Home | Coupon redemption |
+|---|---|
+| <img src="docs/images/web-home.png" alt="Home: pinned maintenance banner, hero, latest news, coupon CTA" width="480"> | <img src="docs/images/web-coupon-success.png" alt="Coupon redeemed: rewards list and redemption history" width="480"> |
+| Pinned maintenance notices become a site-wide banner. | Rewards are shown by item name. Delivery happens asynchronously through the game mailbox. |
+
+| Notice board | Notice detail | Error by code | Mobile |
+|---|---|---|---|
+| <img src="docs/images/web-notices.png" alt="Notice board with category tabs" width="220"> | <img src="docs/images/web-notice-detail.png" alt="Notice detail" width="220"> | <img src="docs/images/web-coupon-error.png" alt="Friendly message for a disabled coupon" width="220"> | <img src="docs/images/web-mobile.png" alt="Mobile layout" width="120"> |
+
+### Operations tool (Next.js)
+
+| Dashboard | Coupon campaign detail |
+|---|---|
+| <img src="docs/images/admin-dashboard.png" alt="Dashboard: failed/pending/delivered counts, recent campaigns and notices" width="480"> | <img src="docs/images/admin-coupon-detail.png" alt="Campaign detail: usage bar, rewards, per-account delivery status" width="480"> |
+| Failed deliveries turn the first card red. | Usage against the cap, rewards, and each redemption's delivery status. One click disables the campaign. |
+
+| Issue a coupon | CS lookup |
+|---|---|
+| <img src="docs/images/admin-coupon-new.png" alt="Coupon issue form with dynamic reward rows" width="480"> | <img src="docs/images/admin-cs.png" alt="CS lookup by account id" width="480"> |
+| Shared or unique codes (up to 100k). A summary confirmation appears before issuing. | Answers "I used a coupon but got nothing" from one account number. |
+
+| Delivery monitoring (dead letters) | Audit log |
+|---|---|
+| <img src="docs/images/admin-outbox.png" alt="Failed deliveries with retry" width="480"> | <img src="docs/images/admin-audit-log.png" alt="Audit log with before/after diff" width="480"> |
+| Deliveries that failed all automatic retries, with a one-click requeue. | Every change to operational data, shown as before → after in human-readable form. |
+
+<details>
+<summary>More screens</summary>
+
+| Login (dev, role picker) | Notice management | Notice edit | Campaign list |
+|---|---|---|---|
+| <img src="docs/images/admin-login.png" width="220"> | <img src="docs/images/admin-notices.png" width="220"> | <img src="docs/images/admin-notice-edit.png" width="220"> | <img src="docs/images/admin-coupons.png" width="220"> |
+
+</details>
+
+---
+
+## Architecture
+
+### System overview
+
+```mermaid
+flowchart LR
+    Player["Player<br/>browser / launcher"]
+    Operator["Operator<br/>internal network"]
+
+    subgraph Portal["Game Portal"]
+        Web["Web<br/>Razor Pages · BFF"]
+        WebApi["Web.Api<br/>public REST API"]
+        AdminWeb["Admin.Web<br/>Next.js · BFF"]
+        AdminApi["Admin.Api<br/>ops REST API"]
+        Worker["Worker<br/>Outbox dispatcher"]
+    end
+
+    DB[("SQL Server")]
+    Redis[("Redis<br/>distributed cache")]
+    Game["Game server<br/>mailbox API"]
+
+    Player -- "HttpOnly cookie" --> Web
+    Web -- "Bearer JWT" --> WebApi
+    Player -. "launcher calls directly" .-> WebApi
+    Operator -- "HttpOnly cookie" --> AdminWeb
+    AdminWeb -- "Bearer JWT (SSO)" --> AdminApi
+    WebApi -- "coupon transaction" --> DB
+    WebApi -- "cached reads" --> Redis
+    AdminApi --> DB
+    AdminApi -- "bump cache version" --> Redis
+    Worker -- "claim with UPDLOCK + READPAST" --> DB
+    Worker -- "Idempotency-Key" --> Game
 ```
-src/
-  GamePortal.Domain          엔티티·비즈니스 규칙·에러 코드 (외부 의존성 없음)
-  GamePortal.Application     유스케이스 서비스, DTO, FluentValidation, 포트 인터페이스
-  GamePortal.Infrastructure  EF Core(SQL Server), Dapper, Redis, 게임서버 HttpClient, Outbox 처리기, 감사 인터셉터
-  GamePortal.AspNetCore      두 API 공통: JWT, ProblemDetails, Serilog, 헬스체크, Swagger
-  GamePortal.Web             홈페이지 (Razor Pages). Web.Api 를 HTTP 로 호출하는 BFF, 토큰은 HttpOnly 쿠키에만
-  GamePortal.Web.Api         유저 대면 API (+ Rate limiting)
-  GamePortal.Admin.Web       운영툴 화면 (Next.js App Router). Admin.Api 를 서버에서 호출하는 BFF, 토큰은 httpOnly 쿠키에만
-  GamePortal.Admin.Api       운영툴 API (+ 역할 기반 권한, 감사 로그)
-  GamePortal.Worker          Outbox → 게임 서버 우편함 전달
-tools/GameServer.Mock        게임 서버 우편함 API 목 (장애 주입 가능)
-tests/
-  GamePortal.UnitTests         도메인 규칙, 검증기, 캐시 폴백, 프론트-서버 에러코드 계약 (56개)
-  GamePortal.IntegrationTests  실제 SQL Server(Testcontainers) + WebApplicationFactory, 홈페이지 화면 포함 (32개)
-src/GamePortal.Admin.Web/lib/*.test.ts   운영툴 단위 테스트: KST 변환, 에러 매핑, 권한, 감사 로그 표시 (13개)
-src/GamePortal.Admin.Web/e2e             운영툴 E2E (Playwright, 실제 스택 대상 4개 시나리오)
+
+| Process | Responsibility | Scaling |
+|---|---|---|
+| **Web** | Player-facing pages: home, notice board, coupon redemption. Calls Web.Api only. | Stateless, horizontal |
+| **Web.Api** | Notices (cached), coupon redemption, redemption history, rate limiting | Stateless, horizontal. Carries most of the traffic |
+| **Admin.Web** | Ops UI. Server Components and Server Actions call Admin.Api on the server | Internal network, 1–2 instances |
+| **Admin.Api** | Notice CRUD, coupon issuance (bulk), CS lookup, delivery retry, audit log, role-based access | Internal network, 1–2 instances |
+| **Worker** | Delivers Outbox messages to the game server with retries | Horizontal. Row locks prevent double processing |
+
+Why separate processes?
+- **Security boundary.** Ops APIs never share a process with public APIs, so a routing mistake can't expose them.
+- **Failure isolation.** Only the Worker talks to the game server, so a slow game server never slows down web responses.
+- **Independent deploys.** An ops-tool feature doesn't require redeploying the servers that take player traffic.
+
+### Coupon redemption: from the click to the in-game mailbox
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Player
+    participant W as Web.Api
+    participant DB as SQL Server
+    participant K as Worker
+    participant G as Game server
+
+    P->>W: POST /api/v1/coupons/redeem
+    W->>DB: Read code + campaign (no tracking), pre-validate period/status/duplicate
+    rect rgba(47, 84, 200, 0.08)
+    Note over W,DB: Single transaction
+    W->>DB: [unique code] UPDATE ... SET RedeemedBy = @acc WHERE RedeemedBy IS NULL
+    W->>DB: UPDATE ... SET RedeemedCount += 1 WHERE RedeemedCount < MaxRedemptions
+    W->>DB: INSERT CouponRedemptions (UNIQUE CampaignId + AccountId)
+    W->>DB: INSERT OutboxMessages (item.grant)
+    end
+    W-->>P: 200 OK with rewards
+    loop every ~2s
+        K->>DB: Claim batch (UPDLOCK, READPAST) and set lease
+        K->>G: POST /internal/mail/items (Idempotency-Key = MessageId)
+        K->>DB: Mark processed, or back off 2^n s (dead letter after 10 attempts)
+    end
 ```
 
-## 실행
+| Rule | How it's enforced | Error code |
+|---|---|---|
+| First-come-first-served cap | Conditional `UPDATE` (atomic increment). 0 rows affected means sold out | `COUPON_SOLD_OUT` |
+| A unique code is used once | Conditional `UPDATE` claims the code | `COUPON_ALREADY_USED` |
+| One redemption per account | `UNIQUE (CampaignId, AccountId)` | `COUPON_ALREADY_REDEEMED` |
+| No partial success | All of the above plus history and Outbox in one transaction | Roll back undoes the increment |
+| No double delivery | Outbox `MessageId` is sent as the game server's idempotency key | 409 treated as success |
+
+Why not call the game server inside the transaction? A slow game server would hold DB locks, and a commit failing after a successful call would give items away for free. Calling it after the commit loses rewards if the process dies. The **Transactional Outbox** avoids both problems.
+
+### Notice caching and cross-process invalidation
+
+```mermaid
+sequenceDiagram
+    participant O as Admin.Api
+    participant R as Redis
+    participant W as Web.Api
+    participant DB as SQL Server
+
+    W->>R: GET notices:__version → v1
+    W->>R: GET notices:v1:list:all:1:20
+    R-->>W: miss
+    W->>DB: SELECT (filtered covering index)
+    W->>R: SET notices:v1:list:... (TTL 60s)
+    O->>DB: UPDATE notice
+    O->>R: SET notices:__version = v2
+    W->>R: GET notices:__version → v2 (old keys expire on their own)
+```
+
+- **No key scans.** Invalidation replaces a single version key instead of `SCAN` + `DEL`, which gets expensive on a busy Redis.
+- **Fail-open.** If Redis is down, reads fall back to the database instead of failing the page.
+- **Negative caching.** Unknown notice IDs are cached too, so crawlers can't hammer the DB.
+
+### Code layers
+
+```mermaid
+flowchart BT
+    Domain["Domain<br/>entities · rules · error codes"]
+    App["Application<br/>use cases · DTOs · validation · ports"]
+    Infra["Infrastructure<br/>EF Core · Dapper · Redis · HttpClient · Outbox"]
+    Host["AspNetCore<br/>JWT · ProblemDetails · Serilog · health checks"]
+    WebApi["Web.Api"]
+    AdminApi["Admin.Api"]
+    Worker["Worker"]
+    Web["Web (Razor Pages)"]
+    AdminWeb["Admin.Web (Next.js)"]
+
+    App --> Domain
+    Infra --> App
+    Host --> Infra
+    WebApi --> Host
+    AdminApi --> Host
+    Worker --> Infra
+    Web -. "HTTP contract only" .-> WebApi
+    AdminWeb -. "HTTP contract only" .-> AdminApi
+```
+
+The two front ends reference no server project. They depend only on the HTTP contract, so each can be deployed on its own.
+
+### Data model
+
+```mermaid
+erDiagram
+    CouponCampaigns ||--o{ CouponCodes : has
+    CouponCampaigns ||--o{ CouponRedemptions : has
+    CouponCodes ||--o{ CouponRedemptions : "used by"
+    CouponRedemptions ||--|| OutboxMessages : "GrantRequestId = MessageId"
+
+    CouponCampaigns {
+        bigint Id PK "HiLo sequence"
+        tinyint Type "Shared or Unique"
+        int MaxRedemptions "NULL means unlimited"
+        int RedeemedCount "only via conditional UPDATE"
+        bit IsEnabled
+        nvarchar Rewards "JSON column"
+    }
+    CouponCodes {
+        bigint Id PK
+        varchar Code UK "normalized"
+        bigint RedeemedByAccountId "unique-code claim"
+    }
+    CouponRedemptions {
+        bigint Id PK
+        bigint CampaignId "UK with AccountId"
+        bigint AccountId
+        uniqueidentifier GrantRequestId UK
+    }
+    OutboxMessages {
+        bigint Id PK
+        uniqueidentifier MessageId UK "idempotency key"
+        tinyint Status "filtered index on pending"
+        int AttemptCount
+        datetimeoffset NextAttemptAt
+        datetimeoffset LockedUntil "worker lease"
+    }
+    Notices {
+        bigint Id PK "HiLo sequence"
+        tinyint Category
+        datetimeoffset PublishAt "scheduled publishing"
+        bit IsDeleted "soft delete"
+    }
+    AuditLogs {
+        bigint Id PK
+        bigint OperatorId
+        varchar EntityName
+        nvarchar Changes "before/after JSON"
+    }
+```
+
+### CI/CD
+
+```mermaid
+flowchart LR
+    PR["Pull request"] --> Fmt["dotnet format"] --> Build["Build<br/>warnings = errors"] --> Mig["Pending-migration<br/>check"] --> Tests["Unit + integration<br/>(Testcontainers)"] --> Docker["Docker build"]
+    PR --> FE["Admin.Web<br/>lint · typecheck · test · build"] --> Docker
+    PR --> AI["AI first-pass review<br/>(Claude)"] --> Human["Human review<br/>CODEOWNERS"]
+    Docker --> Merge["Merge to main"]
+    Human --> Merge
+    Merge --> Push["Push images<br/>GHCR"] --> Bundle["EF migration bundle<br/>+ idempotent SQL"] --> Staging["Staging<br/>auto deploy"]
+    Tag["Tag v*"] --> Prod["Production<br/>manual approval"]
+    Bundle --> Prod
+```
+
+Schema changes run as their own pipeline step, using the EF migration bundle and an idempotent SQL artifact that a DBA can review. Apps never migrate on startup outside local development.
+
+---
+
+## Key design decisions
+
+| Area | Decision | Why |
+|---|---|---|
+| Concurrency | Conditional `UPDATE` and `UNIQUE` constraints instead of read-then-write | Read-then-write causes lost updates and over-issuing under a first-come-first-served rush |
+| Integration | Transactional Outbox, idempotency key, two-level retry (Polly, then exponential backoff to a dead letter) | You can't have a distributed transaction between the web DB and the game server |
+| Data access | EF Core for CRUD. Dapper only for the lock-hinted Outbox claim. No extra repository layer | `DbContext` is already a unit of work. Hiding `IQueryable` makes query tuning harder |
+| Audit | A `SaveChangesInterceptor` writes audit rows in the same transaction. HiLo IDs make IDs known before `INSERT` | Hand-written audit calls get forgotten |
+| Auth | Both front ends are BFFs: tokens live only in HttpOnly cookies and APIs are called server-side | XSS can't steal tokens, and API hosts aren't exposed to browsers |
+| Errors | RFC 7807 ProblemDetails with a stable `code` and a `traceId` | Clients branch on codes, not message text. CS can quote the trace ID |
+| Contracts | A unit test fails if the server adds a coupon error code that the website has no message for | Keeps front-end copy in sync with server contracts |
+| Ops UX | Confirmation summaries, submit locking, KST everywhere, raw audit values translated | Operators make irreversible changes and need to read audits quickly |
+| Localization | Korean line breaking (`word-break: keep-all`), no HTML entity encoding of Hangul | Common pitfalls on Korean sites. Both were found and fixed while building this |
+
+### What this demonstrates
+
+| Requirement | Where it shows up |
+|---|---|
+| Building and maintaining a game website | `src/GamePortal.Web` (SSR, responsive, SEO-friendly notices) + `src/GamePortal.Web.Api` |
+| Building and maintaining an ops tool | `src/GamePortal.Admin.Web` (Next.js) + `src/GamePortal.Admin.Api` (roles, audit, bulk issuance, CSV streaming) |
+| .NET 6+ web services | .NET 8, ASP.NET Core, EF Core 8, `IExceptionHandler`, `TimeProvider`, rate limiter, typed `HttpClient` + resilience |
+| RDBMS development and operations | SQL Server: conditional updates, unique constraints, filtered/covering indexes, HiLo, JSON columns, `UPDLOCK + READPAST`, migrations |
+| RESTful API design | Resource URLs, status-code conventions, ProblemDetails + error codes, paging, idempotency keys |
+| Server architecture and data flow | Web / Admin / Worker split, Transactional Outbox, cache invalidation (diagrams above) |
+| Git-based collaboration | GitHub Flow, Conventional Commits, PR template, CODEOWNERS, Dependabot |
+| Code review culture, process improvement | Review checklist and comment levels, CI-enforced style, migration check |
+| Large-scale web services | Concurrency-safe first-come-first-served, Redis caching, rate limiting, streaming, scaling roadmap |
+| CI/CD automation | GitHub Actions CI/CD, GHCR images, migration bundle, staging auto-deploy, gated production |
+| AI tools in day-to-day development | AI PR review workflow, `CLAUDE.md` agent conventions, AI usage guide in `CONTRIBUTING.md` |
+
+---
+
+## Quick start
 
 ```bash
 docker compose up --build
 ```
 
-| 서비스 | URL |
-|---|---|
-| **홈페이지** | http://localhost:5000 (로그인: 개발용 계정 번호 입력, 쿠폰 `OPEN-2026` 등은 운영툴에서 발행) |
-| **운영툴** | http://localhost:3000 (개발용 로그인에서 관리자/운영자/CS 역할 선택) |
-| Web API | http://localhost:5100/swagger |
-| Admin API | http://localhost:5200/swagger |
-| GameServer Mock | http://localhost:5300 (20% 확률로 503 → 재시도 동작 확인) |
+| Service | URL | Notes |
+|---|---|---|
+| Game website | http://localhost:5000 | Dev login: enter any account number |
+| Ops tool | http://localhost:3000 | Dev login: pick a role (Admin / Operator / CS) |
+| Web API | http://localhost:5100/swagger | |
+| Admin API | http://localhost:5200/swagger | Applies migrations on startup (local only) |
+| Game server mock | http://localhost:5300 | Returns 503 20% of the time, to show the retry path |
 
-### 시나리오 따라하기
+Try the main flow:
+1. In the ops tool, log in as **Admin**. Go to **쿠폰 캠페인 → 쿠폰 발행** and issue a shared code such as `OPEN2026`.
+2. On the website, log in and redeem `open-2026` under **쿠폰 등록**. Case and hyphens don't matter.
+3. Back in the ops tool, open **CS 조회**, enter the account number, and watch the delivery go from *지급 대기* to *지급 완료*.
+4. Open **감사 로그** to see who issued the campaign and with which rewards.
+
+<details>
+<summary>Same flow with curl</summary>
 
 ```bash
-# 1) 운영자 토큰 (로컬/테스트 환경에서만 열리는 dev 엔드포인트)
 ADMIN=$(curl -s -X POST localhost:5200/dev/token -H 'content-type: application/json' \
-  -d '{"operatorId":1,"name":"운영자","roles":["Admin"]}' | jq -r .accessToken)
+  -d '{"operatorId":1,"name":"ops","roles":["Admin"]}' | jq -r .accessToken)
 
-# 2) 선착순 100명 공용 쿠폰 발행
 curl -X POST localhost:5200/api/v1/coupon-campaigns -H "authorization: Bearer $ADMIN" -H 'content-type: application/json' -d '{
-  "name":"오픈 기념", "type":"Shared", "startsAt":"2026-01-01T00:00:00Z", "endsAt":"2027-01-01T00:00:00Z",
-  "maxRedemptions":100, "rewards":[{"itemId":1001,"quantity":100}], "sharedCode":"OPEN2026"}'
+  "name":"Launch gift","type":"Shared","startsAt":"2026-01-01T00:00:00Z","endsAt":"2027-01-01T00:00:00Z",
+  "maxRedemptions":100,"rewards":[{"itemId":1001,"quantity":100}],"sharedCode":"OPEN2026"}'
 
-# 3) 플레이어가 쿠폰 사용 (대소문자/하이픈 무관)
 PLAYER=$(curl -s -X POST localhost:5100/dev/token -H 'content-type: application/json' -d '{"accountId":10001}' | jq -r .accessToken)
-curl -X POST localhost:5100/api/v1/coupons/redeem -H "authorization: Bearer $PLAYER" -H 'content-type: application/json' -d '{"code":"open-2026"}'
+curl -X POST localhost:5100/api/v1/coupons/redeem -H "authorization: Bearer $PLAYER" \
+  -H 'content-type: application/json' -d '{"code":"open-2026"}'
 
-# 4) CS 조회: 사용 이력 + 게임 서버 지급 상태(Pending → Processed)
 curl "localhost:5200/api/v1/coupon-redemptions?accountId=10001" -H "authorization: Bearer $ADMIN"
-
-# 5) 감사 로그
-curl "localhost:5200/api/v1/audit-logs?entityName=CouponCampaign" -H "authorization: Bearer $ADMIN"
 ```
+</details>
 
-## 홈페이지 설계 포인트
+---
 
-- **서버 렌더링(Razor Pages)**: 공지는 검색 유입이 많아 SEO 가 중요하고, 게임 사이트 특성상 첫 화면 속도가 중요하다.
-- **BFF 인증**: 게임 플랫폼 토큰을 브라우저 JS 가 아닌 암호화된 HttpOnly 쿠키에만 보관하고, 서버가 API 호출 시 Bearer 로 전달한다 (XSS 로 토큰 탈취 불가).
-- **에러 코드 → 안내 문구**: 서버 메시지를 그대로 노출하지 않고 `COUPON_SOLD_OUT` 같은 코드로 분기. 서버에 코드가 추가되면 프론트 문구 누락을 **계약 테스트**가 잡는다.
-- **부분 장애 격리**: 공지 API 가 실패해도 메인 페이지는 뜨고 해당 영역만 대체 문구.
-- **POST 재시도 금지**: HTTP 재시도 정책은 GET 에만 적용 (쿠폰 등록 중복 요청 방지).
-- **한국어 처리**: `word-break: keep-all`(어절 단위 줄바꿈), Razor HtmlEncoder 가 한글을 `&#xAC00;` 로 인코딩하지 않도록 설정, 날짜는 UTC 저장 → KST 표시.
-- **보안**: CSP·X-Frame-Options 등 보안 헤더, Antiforgery, Open redirect 차단, 로그아웃 POST 전용.
+## Tests
 
-## 운영툴 설계 포인트
+| Suite | Count | What it proves |
+|---|---:|---|
+| .NET unit (`tests/GamePortal.UnitTests`) | 56 | Domain rules and boundaries, validators, cache fail-open, front-end ↔ server error-code contract |
+| .NET integration (`tests/GamePortal.IntegrationTests`) | 33 | Real SQL Server via Testcontainers. APIs **and** the Razor website run end to end in process |
+| Admin.Web unit (`npm test`) | 13 | KST conversion, error mapping, role rules, audit value formatting |
+| Admin.Web E2E (`npm run e2e`) | 4 | Playwright against the full running stack, including real Worker delivery |
 
-- **Next.js App Router + BFF**: 페이지는 Server Component 가 Admin.Api 를 서버에서 호출해 렌더링하고, 변경은 Server Action 으로 처리한다.
-  운영자 토큰은 httpOnly 쿠키에만 있고 Admin.Api 주소도 브라우저에 노출되지 않는다 (`NEXT_PUBLIC_` 미사용).
-- **권한 2중 방어**: 역할별로 메뉴·버튼·페이지 접근을 화면에서 먼저 막고(편의), 최종 차단은 Admin.Api 정책이 한다.
-- **되돌리기 어려운 작업 보호**: 쿠폰 발행 직전 요약(코드·수량·보상) 확인, 사용 중지·재처리·삭제 확인, 제출 중 버튼 비활성화로 이중 제출 방지.
-- **운영자 친화 표시**: 모든 시각은 KST 로 입력·표시, 감사 로그의 enum/ISO/JSON 원시값을 "점검", "공용 코드", 아이템 이름으로 변환해 before → after 로 표시.
-- **CS 동선**: 계정 번호 하나로 쿠폰 사용 이력 + 게임 서버 지급 상태 + 상태별 안내 가이드. 캠페인·지급 모니터링 화면에서 계정 링크로 바로 이동.
-- **대용량 CSV**: 코드 다운로드는 Route Handler 가 Admin.Api 스트림을 버퍼링 없이 중계.
-
-## 테스트
+Highlights:
+- 40 concurrent players, 10 coupons: **exactly 10** succeed, and the rest get `COUPON_SOLD_OUT`.
+- The same account fires 5 concurrent requests: one succeeds, and the counter increments of the others are **rolled back**.
+- 4 Workers poll concurrently: every message is delivered **exactly once**.
+- An operator edits a notice: the website cache is invalidated immediately, and the audit log records only the changed columns.
+- Issue → player redeems → CS sees "지급 완료" → disable → audit log (E2E through the real UI).
 
 ```bash
 dotnet test tests/GamePortal.UnitTests
-dotnet test tests/GamePortal.IntegrationTests   # Docker 필요
+dotnet test tests/GamePortal.IntegrationTests      # needs Docker
 
 cd src/GamePortal.Admin.Web
-npm test          # 단위 테스트 (node:test)
-npm run e2e       # Playwright E2E — docker compose up 으로 전체 스택을 띄운 뒤 실행
+npm test
+npm run e2e                                        # needs the stack running (docker compose up)
 ```
 
-통합 테스트가 검증하는 핵심 보장:
+---
 
-- 선착순 10개 쿠폰에 40명 동시 요청 → **정확히 10명** 성공, 나머지 `COUPON_SOLD_OUT`
-- 같은 계정 5회 동시 요청 → 1회만 성공, 실패 요청의 수량 증가는 **롤백**
-- 고유 코드 1개에 2명 동시 요청 → 1명만 성공
-- Worker 4대 동시 처리 → 메시지 **중복 전달 없음**
-- 운영툴 공지 수정 → 웹 캐시 즉시 무효화, 감사 로그에 변경 컬럼만 before/after 기록
-- 홈페이지: 로그인 → 쿠폰 등록 → 보상·내역 표시, 에러 코드별 안내 문구, 공지 본문 XSS 이스케이프, 외부 returnUrl 차단, 보안 헤더
-- 운영툴 E2E: 로그인 후 원래 페이지 복귀 / 예약 공지 등록·수정 / 쿠폰 발행 → 유저 사용 → CS 조회 "지급 완료"(실제 Worker 전달) → 사용 중지 → 감사 로그 / CS 역할 메뉴·URL 차단
-- 권한: CS 조회만 / Operator 쿠폰 발행 불가 / 플레이어 토큰으로 운영툴 접근 불가 / 헬스체크는 익명 허용
+## Project layout
 
-## API 요약
+```
+src/
+  GamePortal.Domain           Entities, business rules, error codes (no dependencies)
+  GamePortal.Application      Use cases, DTOs, FluentValidation, ports
+  GamePortal.Infrastructure   EF Core (SQL Server), Dapper, Redis, game-server client, Outbox, audit interceptor
+  GamePortal.AspNetCore       Shared API hosting: JWT, ProblemDetails, Serilog, health checks, Swagger
+  GamePortal.Web              Game website (Razor Pages, BFF)
+  GamePortal.Web.Api          Public REST API (+ rate limiting)
+  GamePortal.Admin.Web        Ops tool UI (Next.js App Router, BFF)
+  GamePortal.Admin.Api        Ops REST API (+ role policies, audit)
+  GamePortal.Worker           Outbox → game server delivery
+tools/GameServer.Mock         Game mailbox API mock with failure injection
+tests/                        .NET unit and integration tests
+docs/                         Architecture, code review guide, screenshots
+.github/                      CI, CD, AI review, PR template, CODEOWNERS, Dependabot
+```
+
+## API summary
 
 **Web API** (`/api/v1`)
 
-| Method | Path | 설명 |
+| Method | Path | Description |
 |---|---|---|
-| GET | `/notices?category=&page=&pageSize=` | 공지 목록 (고정글 우선) |
-| GET | `/notices/{id}` | 공지 상세 |
-| POST | `/coupons/redeem` | 쿠폰 사용 🔒 (계정당 분당 10회) |
-| GET | `/coupons/history` | 내 쿠폰 사용 내역 🔒 |
+| GET | `/notices?category=&page=&pageSize=` | Notice list (pinned first) |
+| GET | `/notices/{id}` | Notice detail |
+| POST | `/coupons/redeem` | Redeem a coupon (auth, 10/min per account) |
+| GET | `/coupons/history` | My redemption history (auth) |
 
-**Admin API** (`/api/v1`) — 역할: `CS` < `Operator` < `Admin`
+**Admin API** (`/api/v1`). Roles: `CS` < `Operator` < `Admin`.
 
-| Method | Path | 권한 |
+| Method | Path | Role |
 |---|---|---|
-| GET/POST/PUT/DELETE | `/notices[/{id}]` | 조회: 전체 / 변경: Operator+ |
-| GET | `/coupon-campaigns[/{id}]` | 전체 |
-| POST | `/coupon-campaigns` | Admin |
-| POST | `/coupon-campaigns/{id}/disable` · `/enable` | Admin |
-| GET | `/coupon-campaigns/{id}/codes.csv` | Admin |
-| GET | `/coupon-redemptions?accountId=&campaignId=` | 전체 (CS 조회) |
-| GET | `/outbox/stats` · `/outbox?status=Failed` | Operator+ |
+| GET/POST/PUT/DELETE | `/notices[/{id}]` | Read: all. Write: Operator+ |
+| GET | `/coupon-campaigns[/{id}]` | All |
+| POST | `/coupon-campaigns` · `/{id}/disable` · `/{id}/enable` | Admin |
+| GET | `/coupon-campaigns/{id}/codes.csv` | Admin (streamed) |
+| GET | `/coupon-redemptions?accountId=&campaignId=` | All (CS lookup) |
+| GET | `/outbox/stats` · `/outbox?status=` | Operator+ |
 | POST | `/outbox/{id}/retry` | Admin |
 | GET | `/audit-logs?entityName=&entityId=&operatorId=&from=&to=` | Admin |
 
-에러 응답 예시 (RFC 7807):
+Error format (RFC 7807):
 
 ```json
-{
-  "status": 409,
-  "title": "선착순 수량이 모두 소진되었습니다.",
-  "code": "COUPON_SOLD_OUT",
-  "instance": "/api/v1/coupons/redeem",
-  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736"
-}
+{ "status": 409, "code": "COUPON_SOLD_OUT", "title": "선착순 수량이 모두 소진되었습니다.",
+  "instance": "/api/v1/coupons/redeem", "traceId": "4bf92f3577b34da6a3ce929d0e0e4736" }
 ```
 
-## PoC 에서 의도적으로 제외한 것
+---
 
-- 실제 SSO/게임 플랫폼 인증 연동 (`Jwt:Authority` 설정만으로 전환 가능하도록 구성, 로컬은 dev 토큰)
-- 운영툴 E2E 의 CI 실행 (전체 스택 기동이 필요해 현재는 로컬 실행. CI 는 lint·typecheck·단위 테스트·빌드까지)
-- K8s 매니페스트 / IaC (CD 워크플로우에 배포 단계만 정의, `DEPLOY_ENABLED` 변수로 활성화)
+## Engineering process
+
+- **Style is enforced by machines.** `.editorconfig` plus `dotnet format` and warnings-as-errors in CI, and ESLint with zero warnings for the front end. Reviews focus on design.
+- **AI-assisted development.** Every PR gets a first-pass review from Claude, using the checklist in [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md). [CLAUDE.md](CLAUDE.md) gives coding agents the same conventions humans follow. The PR template asks authors to disclose AI usage.
+- **Safe schema changes.** CI fails when entities change without a migration. Migrations ship as a bundle with a reviewable idempotent SQL script.
+- **Repo hygiene.** GitHub Flow, Conventional Commits, CODEOWNERS on money-sensitive paths, Dependabot.
+
+## Out of scope for this PoC
+
+- Real SSO / game-platform login. Switching over only needs `Jwt:Authority`. Locally, dev tokens are used.
+- Running the Playwright E2E suite in CI. It needs the full stack, so it runs locally for now.
+- Kubernetes manifests and IaC. The CD workflow defines the rollout steps behind a `DEPLOY_ENABLED` switch.
