@@ -1,0 +1,32 @@
+@page "/notices/{id:long}"
+@model GamePortal.Web.Pages.Notices.DetailModel
+@{
+    var n = Model.Notice;
+    ViewData["Title"] = n.Title;
+    // 본문은 운영툴에서 입력한 평문. HTML 로 해석하지 않고(XSS 방지) 줄바꿈만 문단으로 나눈다.
+    var paragraphs = n.Content.Replace("\r\n", "\n").Split("\n\n", StringSplitOptions.RemoveEmptyEntries);
+}
+
+<article class="container page article">
+    <a class="back" href="/notices?category=@n.Category">← @NoticeDisplay.Label(n.Category) 목록</a>
+    <header class="article__head">
+        <span class="@NoticeDisplay.CssClass(n.Category)">@NoticeDisplay.Label(n.Category)</span>
+        <h1>@n.Title</h1>
+        <time datetime="@n.PublishAt.ToString("O")">@NoticeDisplay.DateTime(n.PublishAt) (KST)</time>
+    </header>
+    <div class="article__body">
+        @foreach (var p in paragraphs)
+        {
+            <p>
+                @foreach (var (line, i) in p.Split('\n').Select((l, i) => (l, i)))
+                {
+                    if (i > 0)
+                    {
+                        <br />
+                    }
+                    @line
+                }
+            </p>
+        }
+    </div>
+</article>

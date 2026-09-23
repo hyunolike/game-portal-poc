@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] is string t ? $"{t} | ETHERFALL" : "ETHERFALL")</title>
+    <meta name="description" content="ETHERFALL 공식 홈페이지 — 공지사항, 업데이트, 이벤트, 쿠폰 등록" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <a class="skip" href="#main">본문으로 건너뛰기</a>
+    <header class="gnb">
+        <div class="gnb__inner">
+            <a class="logo" href="/">ETHERFALL</a>
+            <nav class="gnb__nav" aria-label="주 메뉴">
+                <a href="/notices" class="@(Context.Request.Path.StartsWithSegments("/notices") ? "is-active" : null)">공지사항</a>
+                <a href="/coupon" class="@(Context.Request.Path.StartsWithSegments("/coupon") ? "is-active" : null)">쿠폰 등록</a>
+            </nav>
+            <div class="gnb__account">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <span class="gnb__user">@User.Identity.Name</span>
+                    <form method="post" action="/account/logout">
+                        <button type="submit" class="link-button">로그아웃</button>
+                    </form>
+                }
+                else
+                {
+                    <a class="btn btn--ghost btn--sm" href="/account/login?returnUrl=@Uri.EscapeDataString(Context.Request.Path + Context.Request.QueryString)">로그인</a>
+                }
+            </div>
+        </div>
+    </header>
+
+    <main id="main">
+        @RenderBody()
+    </main>
+
+    <footer class="footer">
+        <div class="footer__inner">
+            <span class="logo logo--sm">ETHERFALL</span>
+            <p>이 사이트는 게임 포털 PoC 의 데모 화면입니다. 게임명, 아이템, 이벤트는 모두 가상입니다.</p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,96 @@
+# 로컬 통합 실행 환경: docker compose up --build
+# 홈페이지     http://localhost:5000
+# 운영툴       http://localhost:3000
+# Web API     http://localhost:5100/swagger
+# Admin API   http://localhost:5200/swagger
+# GameServer  http://localhost:5300 (mock)
+name: game-portal
+
+x-portal-env: &portal-env
+  ASPNETCORE_ENVIRONMENT: Development
+  ConnectionStrings__PortalDb: "Server=sqlserver,1433;Database=GamePortal;User Id=sa;Password=Local_Dev_Passw0rd;TrustServerCertificate=True"
+  ConnectionStrings__Redis: "redis:6379"
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Local_Dev_Passw0rd"
+    ports: ["1433:1433"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    volumes: [mssql-data:/var/opt/mssql]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+  admin-api:
+    build: { context: ., args: { PROJECT: src/GamePortal.Admin.Api } }
+    environment:
+      <<: *portal-env
+      Jwt__SigningKey: "local-dev-only-admin-signing-key-change-me-012345"
+      Database__MigrateOnStartup: "true"   # 로컬 한정. 운영은 CD 의 마이그레이션 번들 사용
+    ports: ["5200:8080"]
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web-api:
+    build: { context: ., args: { PROJECT: src/GamePortal.Web.Api } }
+    environment:
+      <<: *portal-env
+      Jwt__SigningKey: "local-dev-only-signing-key-change-me-0123456789"
+    ports: ["5100:8080"]
+    depends_on:
+      admin-api: { condition: service_started }
+      redis: { condition: service_healthy }
+
+  web:
+    build: { context: ., args: { PROJECT: src/GamePortal.Web } }
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development   # 개발용 로그인 페이지 활성화
+      PortalApi__BaseUrl: "http://web-api:8080"
+    ports: ["5000:8080"]
+    depends_on:
+      web-api: { condition: service_started }
+
+  admin-web:
+    build: { context: ./src/GamePortal.Admin.Web }
+    environment:
+      ADMIN_API_URL: "http://admin-api:8080"   # 서버 측에서만 사용 (브라우저 비노출)
+      ADMIN_DEV_LOGIN: "true"                  # 로컬 한정. 운영은 사내 SSO
+      ADMIN_INSECURE_COOKIE: "true"            # 로컬 http 접속용. 운영은 https + Secure 쿠키
+    ports: ["3000:3000"]
+    depends_on:
+      admin-api: { condition: service_started }
+
+  worker:
+    build: { context: ., args: { PROJECT: src/GamePortal.Worker } }
+    environment:
+      <<: *portal-env
+      DOTNET_ENVIRONMENT: Development
+      GameServer__BaseUrl: "http://gameserver-mock:8080"
+      GameServer__ApiKey: "local-game-server-key"
+    depends_on:
+      admin-api: { condition: service_started }
+      gameserver-mock: { condition: service_started }
+
+  gameserver-mock:
+    build: { context: ., args: { PROJECT: tools/GameServer.Mock } }
+    environment:
+      ApiKey: "local-game-server-key"
+      FailureRate: "0.2"   # 20% 확률로 503 → Outbox 재시도 동작 확인용
+    ports: ["5300:8080"]
+
+volumes:
+  mssql-data:

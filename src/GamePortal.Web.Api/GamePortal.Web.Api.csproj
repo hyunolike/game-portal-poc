@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\GamePortal.AspNetCore\GamePortal.AspNetCore.csproj" />
+  </ItemGroup>
+</Project>

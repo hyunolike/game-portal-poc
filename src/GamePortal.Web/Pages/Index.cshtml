@@ -1,0 +1,67 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "홈";
+}
+
+@if (Model.Maintenance is { } m)
+{
+    <aside class="alert-bar" role="status">
+        <div class="alert-bar__inner">
+            <span class="badge badge--maintenance">점검</span>
+            <a href="/notices/@m.Id">@m.Title</a>
+        </div>
+    </aside>
+}
+
+<section class="hero">
+    <div class="hero__inner">
+        <p class="hero__eyebrow">시즌 3 · 무너진 성소</p>
+        <h1 class="hero__title">별이 떨어진 자리에서<br />다시 여정을 시작하세요</h1>
+        <p class="hero__lede">새로운 지역 「잿빛 첨탑」과 레이드 던전이 열렸습니다. 쿠폰을 등록하고 시즌 한정 보상을 받아 가세요.</p>
+        <div class="hero__actions">
+            <a class="btn btn--primary" href="/coupon">쿠폰 등록하기</a>
+            <a class="btn btn--ghost" href="/notices?category=Update">업데이트 노트</a>
+        </div>
+    </div>
+    <div class="hero__sky" aria-hidden="true"></div>
+</section>
+
+<div class="container home-grid">
+    <section class="panel" aria-labelledby="latest-notices">
+        <div class="panel__head">
+            <h2 id="latest-notices">새 소식</h2>
+            <a class="more" href="/notices">전체 보기</a>
+        </div>
+
+        @if (Model.NoticesUnavailable)
+        {
+            <p class="empty">소식을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</p>
+        }
+        else if (Model.Notices.Count == 0)
+        {
+            <p class="empty">등록된 소식이 없습니다.</p>
+        }
+        else
+        {
+            <ul class="notice-list">
+                @foreach (var n in Model.Notices)
+                {
+                    <li class="notice-row @(n.IsPinned ? "is-pinned" : null)">
+                        <span class="@NoticeDisplay.CssClass(n.Category)">@NoticeDisplay.Label(n.Category)</span>
+                        <a class="notice-row__title" href="/notices/@n.Id">@n.Title</a>
+                        <time class="notice-row__date" datetime="@n.PublishAt.ToString("O")">@NoticeDisplay.Date(n.PublishAt)</time>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <aside class="coupon-card" aria-labelledby="coupon-cta">
+        <p class="coupon-card__eyebrow">COUPON</p>
+        <h2 id="coupon-cta">쿠폰 번호를 받으셨나요?</h2>
+        <p>방송, 커뮤니티, 패키지 상품으로 받은 쿠폰을 등록하면 게임 내 <strong>우편함</strong>으로 보상이 지급됩니다.</p>
+        <a class="btn btn--primary btn--block" href="/coupon">쿠폰 등록</a>
+        <p class="coupon-card__hint">예: ABCD-EFGH-2345 · 대소문자와 하이픈은 구분하지 않습니다</p>
+    </aside>
+</div>

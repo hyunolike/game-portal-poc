@@ -1,0 +1,25 @@
+@page "/account/login"
+@model GamePortal.Web.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "로그인";
+}
+
+<div class="container page auth">
+    <div class="auth__card">
+        <h1>로그인</h1>
+        <p class="auth__note">개발용 로그인입니다. 실서비스에서는 게임 계정(플랫폼 SSO) 로그인 화면으로 이동합니다.</p>
+        <form method="post">
+            <input type="hidden" asp-for="ReturnUrl" />
+            <div class="field">
+                <label asp-for="AccountId">계정 번호</label>
+                <input asp-for="AccountId" id="AccountId" inputmode="numeric" />
+                <span asp-validation-for="AccountId" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Nickname">캐릭터명</label>
+                <input asp-for="Nickname" id="Nickname" />
+            </div>
+            <button type="submit" class="btn btn--primary btn--block">로그인</button>
+        </form>
+    </div>
+</div>

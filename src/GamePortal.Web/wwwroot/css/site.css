@@ -1,0 +1,471 @@
+/* ETHERFALL — 게임 홈페이지 스타일. 게임 사이트 관례에 맞춰 단일 다크 테마로 설계. */
+:root {
+    color-scheme: dark;
+    --ground: #10132a;
+    --ground-deep: #0a0c1d;
+    --surface: #181c38;
+    --surface-2: #1f2446;
+    --line: #2c3259;
+    --ink: #ece7da;
+    --muted: #9c9ab3;
+    --gold: #d8b36a;
+    --gold-strong: #ecca84;
+    --gold-ink: #1b1608;
+    --teal: #6cbdb0;
+    --rose: #dd8195;
+    --amber: #e39a55;
+    --ok: #7fcf9a;
+    --danger: #ef8a7c;
+    --display: "Cinzel", "Times New Roman", serif;
+    --font: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    --radius: 6px;
+    --gutter: 20px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    /* 한국어는 어절 단위 줄바꿈 ("지급됩니/다" 방지). 긴 URL/코드는 어디서든 끊기도록 */
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+main { flex: 1; }
+
+a { color: inherit; }
+a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.skip {
+    position: absolute;
+    left: -999px;
+    top: 8px;
+    background: var(--gold);
+    color: var(--gold-ink);
+    padding: 6px 12px;
+    z-index: 10;
+}
+.skip:focus { left: 8px; }
+
+.container {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding-inline: var(--gutter);
+}
+
+/* ---------- GNB ---------- */
+.gnb {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: color-mix(in srgb, var(--ground-deep) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+}
+.gnb__inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding-inline: var(--gutter);
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+}
+.logo {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 0.14em;
+    color: var(--gold);
+    text-decoration: none;
+}
+.logo--sm { font-size: 15px; }
+.gnb__nav { display: flex; gap: 20px; white-space: nowrap; }
+.gnb__nav a {
+    text-decoration: none;
+    color: var(--muted);
+    font-weight: 500;
+    padding-block: 18px;
+    border-bottom: 2px solid transparent;
+}
+.gnb__nav a:hover { color: var(--ink); }
+.gnb__nav a.is-active { color: var(--ink); border-bottom-color: var(--gold); }
+.gnb__account { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.gnb__account form { margin: 0; }
+.gnb__user { color: var(--gold-strong); font-weight: 500; white-space: nowrap; }
+@media (max-width: 560px) {
+    /* 좁은 화면: 로고/계정 1행, 메뉴 2행 */
+    .gnb__inner { height: auto; flex-wrap: wrap; row-gap: 0; padding-top: 12px; }
+    .gnb__nav { order: 3; width: 100%; gap: 24px; }
+    .gnb__nav a { padding-block: 10px; }
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 44px;
+    padding-inline: 22px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color .15s, border-color .15s, color .15s;
+}
+.btn--primary { background: var(--gold); color: var(--gold-ink); }
+.btn--primary:hover { background: var(--gold-strong); }
+.btn--ghost { border-color: var(--line); color: var(--ink); background: transparent; }
+.btn--ghost:hover { border-color: var(--gold); color: var(--gold-strong); }
+.btn--sm { height: 34px; padding-inline: 14px; font-size: 14px; }
+.btn--block { width: 100%; }
+.link-button {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.link-button:hover { color: var(--ink); }
+
+/* ---------- Maintenance bar ---------- */
+.alert-bar { background: color-mix(in srgb, var(--amber) 16%, var(--ground-deep)); border-bottom: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); }
+.alert-bar__inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 10px var(--gutter);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.alert-bar a { text-decoration: none; font-weight: 500; }
+.alert-bar a:hover { text-decoration: underline; }
+
+/* ---------- Hero ---------- */
+.hero {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line);
+    background:
+        radial-gradient(ellipse 60% 80% at 78% 30%, color-mix(in srgb, var(--gold) 22%, transparent), transparent 70%),
+        radial-gradient(ellipse 50% 70% at 10% 100%, color-mix(in srgb, var(--teal) 16%, transparent), transparent 70%),
+        linear-gradient(180deg, var(--ground-deep), var(--ground));
+}
+.hero__inner {
+    position: relative;
+    z-index: 1;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 72px var(--gutter) 80px;
+    display: grid;
+    gap: 16px;
+    justify-items: start;
+}
+.hero__eyebrow {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    font-weight: 500;
+}
+.hero__title {
+    margin: 0;
+    font-size: clamp(28px, 5vw, 46px);
+    line-height: 1.3;
+    font-weight: 700;
+    text-wrap: balance;
+    max-width: 18ch;
+}
+.hero__lede { margin: 0; color: var(--muted); max-width: 46ch; }
+.hero__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+/* 별이 떨어지는 하늘 — 이미지 없이 CSS 로만 */
+.hero__sky {
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(1.5px 1.5px at 62% 18%, var(--ink), transparent),
+        radial-gradient(1px 1px at 72% 42%, var(--ink), transparent),
+        radial-gradient(1.5px 1.5px at 84% 12%, var(--gold-strong), transparent),
+        radial-gradient(1px 1px at 91% 58%, var(--ink), transparent),
+        radial-gradient(1px 1px at 55% 70%, var(--muted), transparent),
+        radial-gradient(1.5px 1.5px at 96% 32%, var(--ink), transparent),
+        radial-gradient(1px 1px at 68% 84%, var(--muted), transparent);
+    opacity: .8;
+}
+.hero__sky::after {
+    content: "";
+    position: absolute;
+    top: 14%;
+    right: 12%;
+    width: 180px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold-strong));
+    transform: rotate(-28deg);
+    transform-origin: right center;
+    filter: drop-shadow(0 0 6px var(--gold));
+    animation: fall 7s ease-in-out infinite;
+}
+@keyframes fall {
+    0%, 70% { opacity: 0; translate: 0 0; }
+    75% { opacity: 1; }
+    100% { opacity: 0; translate: -160px 90px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hero__sky::after { animation: none; opacity: .7; }
+}
+
+/* ---------- Home grid ---------- */
+.home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 28px;
+    padding-block: 40px 64px;
+    align-items: start;
+}
+@media (max-width: 860px) {
+    .home-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.panel__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.panel__head h2 { margin: 0; font-size: 20px; }
+.more { color: var(--muted); font-size: 14px; text-decoration: none; }
+.more:hover { color: var(--gold-strong); }
+
+/* ---------- Notice list ---------- */
+.notice-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.notice-row {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--line);
+}
+.notice-row.is-pinned { background: color-mix(in srgb, var(--gold) 6%, transparent); }
+.notice-row__title {
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.notice-row__title:hover { color: var(--gold-strong); }
+.notice-row__date { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+    .notice-row { grid-template-columns: 76px minmax(0, 1fr); row-gap: 2px; }
+    .notice-row__date { grid-column: 2; }
+    .notice-row__title { white-space: normal; }
+}
+
+.badge {
+    display: inline-block;
+    justify-self: start;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+}
+.badge--notice { color: var(--gold); }
+.badge--update { color: var(--teal); }
+.badge--event { color: var(--rose); }
+.badge--maintenance { color: var(--amber); }
+
+.empty { color: var(--muted); padding: 32px 0; margin: 0; }
+
+/* ---------- Coupon CTA card ---------- */
+.coupon-card {
+    background: linear-gradient(160deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: grid;
+    gap: 12px;
+}
+.coupon-card h2 { margin: 0; font-size: 19px; text-wrap: balance; }
+.coupon-card p { margin: 0; color: var(--muted); font-size: 14px; }
+.coupon-card strong { color: var(--ink); }
+.coupon-card__eyebrow { font-family: var(--display); letter-spacing: 0.2em; color: var(--gold) !important; font-size: 12px !important; }
+.coupon-card__hint { font-size: 12px !important; }
+
+/* ---------- Generic page ---------- */
+.page { padding-block: 40px 72px; }
+.page__title { margin: 0 0 8px; font-size: 28px; }
+.page__lede { margin: 0 0 24px; color: var(--muted); }
+.page__lede strong { color: var(--ink); }
+
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 20px 0 16px;
+}
+.tabs__item {
+    text-decoration: none;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 14px;
+}
+.tabs__item:hover { color: var(--ink); border-color: var(--muted); }
+.tabs__item.is-active { background: var(--gold); border-color: var(--gold); color: var(--gold-ink); font-weight: 700; }
+
+.pager { display: flex; justify-content: center; gap: 4px; margin-top: 28px; }
+.pager a {
+    min-width: 36px;
+    height: 36px;
+    display: inline-grid;
+    place-items: center;
+    text-decoration: none;
+    border-radius: var(--radius);
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.pager a:hover { color: var(--ink); background: var(--surface); }
+.pager a.is-active { color: var(--gold-ink); background: var(--gold); font-weight: 700; }
+
+/* ---------- Article ---------- */
+.article { max-width: 760px; }
+.back { color: var(--muted); text-decoration: none; font-size: 14px; }
+.back:hover { color: var(--gold-strong); }
+.article__head {
+    display: grid;
+    gap: 10px;
+    padding-block: 20px 24px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+}
+.article__head h1 { margin: 0; font-size: clamp(22px, 3.5vw, 30px); line-height: 1.4; text-wrap: balance; }
+.article__head time { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.article__body { font-size: 16px; line-height: 1.85; max-width: 65ch; }
+.article__body p { margin: 0 0 1.2em; }
+
+/* ---------- Coupon page ---------- */
+.coupon-page { max-width: 720px; }
+.coupon-form {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: grid;
+    gap: 10px;
+}
+.coupon-form__label { font-weight: 700; }
+.coupon-form__row { display: flex; gap: 10px; }
+.coupon-form__input,
+.field input {
+    flex: 1;
+    min-width: 0;
+    height: 48px;
+    padding-inline: 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: var(--ground-deep);
+    color: var(--ink);
+    font: inherit;
+}
+.coupon-form__input {
+    font-size: 18px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+}
+.coupon-form__input::placeholder { color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.coupon-form__input:focus, .field input:focus { border-color: var(--gold); outline: none; }
+.coupon-form .btn { height: 48px; }
+@media (max-width: 480px) {
+    .coupon-form__row { flex-direction: column; }
+}
+.field-error { color: var(--danger); font-size: 14px; }
+.field-error:empty { display: none; }
+
+.result {
+    margin-top: 20px;
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    border: 1px solid;
+}
+.result h2 { margin: 0 0 4px; font-size: 18px; }
+.result p { margin: 0; }
+.result--ok { border-color: color-mix(in srgb, var(--ok) 50%, transparent); background: color-mix(in srgb, var(--ok) 8%, var(--surface)); }
+.result--ok h2 { color: var(--ok); }
+.result--error { border-color: color-mix(in srgb, var(--danger) 50%, transparent); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
+.result__campaign { color: var(--muted); }
+.result__hint { color: var(--muted); font-size: 13px; margin-top: 12px !important; }
+.result__trace { color: var(--muted); font-size: 13px; margin-top: 8px !important; }
+.result code { color: var(--ink); }
+.rewards { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 6px; }
+.rewards li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--ground-deep);
+    border-radius: 4px;
+}
+.rewards__qty { color: var(--gold-strong); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.history { margin-top: 40px; }
+.history h2 { font-size: 18px; margin: 0 0 12px; }
+.history__table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.history__table th, .history__table td { text-align: left; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.history__table th { color: var(--muted); font-weight: 500; }
+.num { font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* ---------- Auth ---------- */
+.auth { display: grid; place-items: center; }
+.auth__card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 28px;
+    display: grid;
+    gap: 16px;
+}
+.auth__card h1 { margin: 0; font-size: 22px; }
+.auth__card form { display: grid; gap: 14px; }
+.auth__note { margin: 0; color: var(--muted); font-size: 13px; }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 14px; font-weight: 500; }
+
+/* ---------- Footer ---------- */
+.footer { border-top: 1px solid var(--line); background: var(--ground-deep); }
+.footer__inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px var(--gutter);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px 20px;
+}
+.footer p { margin: 0; color: var(--muted); font-size: 13px; }
