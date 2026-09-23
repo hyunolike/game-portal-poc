@@ -1,6 +1,6 @@
 # Game Portal PoC
 
-게임 홈페이지(화면 + API) + 운영툴 백엔드 PoC (.NET 8 / Razor Pages / SQL Server / Redis / GitHub Actions)
+게임 홈페이지 + 운영툴 풀스택 PoC (.NET 8 / Razor Pages / Next.js / SQL Server / Redis / GitHub Actions)
 
 "**쿠폰 입력 → 게임 내 우편함 지급**", "**운영툴에서 공지 작성 → 홈페이지 즉시 반영**" 같은
 게임 웹서비스의 대표 시나리오를 실무 수준의 **동시성 제어 · 데이터 정합성 · 운영성 · 배포 자동화**로 구현했다.
@@ -9,6 +9,10 @@
 |---|---|---|
 | ![홈](docs/images/homepage-home.png) | ![쿠폰](docs/images/homepage-coupon.png) | ![모바일](docs/images/homepage-mobile.png) |
 
+| 운영툴 대시보드 | 쿠폰 발행 | 감사 로그 |
+|---|---|---|
+| ![대시보드](docs/images/admin-dashboard.png) | ![쿠폰 발행](docs/images/admin-coupon-new.png) | ![감사 로그](docs/images/admin-audit-log.png) |
+
 > 설계 상세: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · 리뷰 가이드: [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md) · 개발 프로세스: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## 채용공고 ↔ PoC 매핑
@@ -16,7 +20,7 @@
 | 채용공고 항목 | 이 PoC 에서 보여주는 것 | 위치 |
 |---|---|---|
 | 게임에 필요한 **웹사이트** 개발 | 홈페이지(Razor Pages, 서버 렌더링): 메인·공지 게시판·쿠폰 등록·반응형. 공지 조회(분산 캐시)·쿠폰 사용 API | `src/GamePortal.Web`, `src/GamePortal.Web.Api` |
-| 웹사이트 관리 **운영툴** 개발 | 공지 CRUD, 쿠폰 발행(10만 건 BulkCopy)/중지/CSV 스트리밍, CS 조회, 지급 실패 재처리, 감사 로그, 역할 기반 권한 | `src/GamePortal.Admin.Api` |
+| 웹사이트 관리 **운영툴** 개발 | 운영툴 화면(Next.js): 대시보드·공지 관리·쿠폰 발행/중지/CSV·CS 조회·지급 재처리·감사 로그, 역할별 메뉴. API: 10만 건 BulkCopy, CSV 스트리밍, 역할 기반 권한 | `src/GamePortal.Admin.Web`, `src/GamePortal.Admin.Api` |
 | **.NET 6.0 이상** 웹서비스 | .NET 8, ASP.NET Core, EF Core 8, Minimal hosting, `IExceptionHandler`, `TimeProvider`, Rate Limiter | 전체 |
 | **RDBMS** 개발·운영 | SQL Server: 조건부 UPDATE 동시성, UNIQUE 제약, 필터드/커버링 인덱스, HiLo 시퀀스, JSON 컬럼, `UPDLOCK+READPAST`, EF 마이그레이션 | `Infrastructure/Persistence`, `Outbox` |
 | **RESTful API** 설계 | 리소스 중심 URL, 상태코드 규약, RFC 7807 ProblemDetails + 에러 코드, 페이징, `Idempotency-Key` | Controllers, `GlobalExceptionHandler` |
@@ -37,12 +41,15 @@ src/
   GamePortal.AspNetCore      두 API 공통: JWT, ProblemDetails, Serilog, 헬스체크, Swagger
   GamePortal.Web             홈페이지 (Razor Pages). Web.Api 를 HTTP 로 호출하는 BFF, 토큰은 HttpOnly 쿠키에만
   GamePortal.Web.Api         유저 대면 API (+ Rate limiting)
+  GamePortal.Admin.Web       운영툴 화면 (Next.js App Router). Admin.Api 를 서버에서 호출하는 BFF, 토큰은 httpOnly 쿠키에만
   GamePortal.Admin.Api       운영툴 API (+ 역할 기반 권한, 감사 로그)
   GamePortal.Worker          Outbox → 게임 서버 우편함 전달
 tools/GameServer.Mock        게임 서버 우편함 API 목 (장애 주입 가능)
 tests/
   GamePortal.UnitTests         도메인 규칙, 검증기, 캐시 폴백, 프론트-서버 에러코드 계약 (56개)
   GamePortal.IntegrationTests  실제 SQL Server(Testcontainers) + WebApplicationFactory, 홈페이지 화면 포함 (32개)
+src/GamePortal.Admin.Web/lib/*.test.ts   운영툴 단위 테스트: KST 변환, 에러 매핑, 권한, 감사 로그 표시 (13개)
+src/GamePortal.Admin.Web/e2e             운영툴 E2E (Playwright, 실제 스택 대상 4개 시나리오)
 ```
 
 ## 실행
@@ -54,6 +61,7 @@ docker compose up --build
 | 서비스 | URL |
 |---|---|
 | **홈페이지** | http://localhost:5000 (로그인: 개발용 계정 번호 입력, 쿠폰 `OPEN-2026` 등은 운영툴에서 발행) |
+| **운영툴** | http://localhost:3000 (개발용 로그인에서 관리자/운영자/CS 역할 선택) |
 | Web API | http://localhost:5100/swagger |
 | Admin API | http://localhost:5200/swagger |
 | GameServer Mock | http://localhost:5300 (20% 확률로 503 → 재시도 동작 확인) |
@@ -91,11 +99,25 @@ curl "localhost:5200/api/v1/audit-logs?entityName=CouponCampaign" -H "authorizat
 - **한국어 처리**: `word-break: keep-all`(어절 단위 줄바꿈), Razor HtmlEncoder 가 한글을 `&#xAC00;` 로 인코딩하지 않도록 설정, 날짜는 UTC 저장 → KST 표시.
 - **보안**: CSP·X-Frame-Options 등 보안 헤더, Antiforgery, Open redirect 차단, 로그아웃 POST 전용.
 
+## 운영툴 설계 포인트
+
+- **Next.js App Router + BFF**: 페이지는 Server Component 가 Admin.Api 를 서버에서 호출해 렌더링하고, 변경은 Server Action 으로 처리한다.
+  운영자 토큰은 httpOnly 쿠키에만 있고 Admin.Api 주소도 브라우저에 노출되지 않는다 (`NEXT_PUBLIC_` 미사용).
+- **권한 2중 방어**: 역할별로 메뉴·버튼·페이지 접근을 화면에서 먼저 막고(편의), 최종 차단은 Admin.Api 정책이 한다.
+- **되돌리기 어려운 작업 보호**: 쿠폰 발행 직전 요약(코드·수량·보상) 확인, 사용 중지·재처리·삭제 확인, 제출 중 버튼 비활성화로 이중 제출 방지.
+- **운영자 친화 표시**: 모든 시각은 KST 로 입력·표시, 감사 로그의 enum/ISO/JSON 원시값을 "점검", "공용 코드", 아이템 이름으로 변환해 before → after 로 표시.
+- **CS 동선**: 계정 번호 하나로 쿠폰 사용 이력 + 게임 서버 지급 상태 + 상태별 안내 가이드. 캠페인·지급 모니터링 화면에서 계정 링크로 바로 이동.
+- **대용량 CSV**: 코드 다운로드는 Route Handler 가 Admin.Api 스트림을 버퍼링 없이 중계.
+
 ## 테스트
 
 ```bash
 dotnet test tests/GamePortal.UnitTests
 dotnet test tests/GamePortal.IntegrationTests   # Docker 필요
+
+cd src/GamePortal.Admin.Web
+npm test          # 단위 테스트 (node:test)
+npm run e2e       # Playwright E2E — docker compose up 으로 전체 스택을 띄운 뒤 실행
 ```
 
 통합 테스트가 검증하는 핵심 보장:
@@ -106,6 +128,7 @@ dotnet test tests/GamePortal.IntegrationTests   # Docker 필요
 - Worker 4대 동시 처리 → 메시지 **중복 전달 없음**
 - 운영툴 공지 수정 → 웹 캐시 즉시 무효화, 감사 로그에 변경 컬럼만 before/after 기록
 - 홈페이지: 로그인 → 쿠폰 등록 → 보상·내역 표시, 에러 코드별 안내 문구, 공지 본문 XSS 이스케이프, 외부 returnUrl 차단, 보안 헤더
+- 운영툴 E2E: 로그인 후 원래 페이지 복귀 / 예약 공지 등록·수정 / 쿠폰 발행 → 유저 사용 → CS 조회 "지급 완료"(실제 Worker 전달) → 사용 중지 → 감사 로그 / CS 역할 메뉴·URL 차단
 - 권한: CS 조회만 / Operator 쿠폰 발행 불가 / 플레이어 토큰으로 운영툴 접근 불가 / 헬스체크는 익명 허용
 
 ## API 요약
@@ -147,6 +170,6 @@ dotnet test tests/GamePortal.IntegrationTests   # Docker 필요
 
 ## PoC 에서 의도적으로 제외한 것
 
-- 운영툴 프론트엔드 (API + Swagger 로 대체, 다음 단계)
 - 실제 SSO/게임 플랫폼 인증 연동 (`Jwt:Authority` 설정만으로 전환 가능하도록 구성, 로컬은 dev 토큰)
+- 운영툴 E2E 의 CI 실행 (전체 스택 기동이 필요해 현재는 로컬 실행. CI 는 lint·typecheck·단위 테스트·빌드까지)
 - K8s 매니페스트 / IaC (CD 워크플로우에 배포 단계만 정의, `DEPLOY_ENABLED` 변수로 활성화)

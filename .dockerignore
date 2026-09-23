@@ -8,3 +8,5 @@
 .github/
 docs/
 tests/
+**/node_modules/
+**/.next/

@@ -15,6 +15,7 @@ flowchart LR
     subgraph GamePortal
         F["Web (Razor Pages)<br/>홈페이지 · BFF"]
         W[Web.Api<br/>유저 대면]
+        AW["Admin.Web (Next.js)<br/>운영툴 화면 · BFF"]
         A[Admin.Api<br/>운영툴]
         K[Worker<br/>Outbox Dispatcher]
     end
@@ -26,7 +27,8 @@ flowchart LR
     U -- "HttpOnly 쿠키" --> F
     F -- "Bearer JWT" --> W
     U -. "런처 등 직접 호출" .-> W
-    O -- "JWT (사내 SSO)" --> A
+    O -- "httpOnly 쿠키" --> AW
+    AW -- "Bearer JWT (사내 SSO)" --> A
     W --> DB
     W --> R
     A --> DB
@@ -39,6 +41,7 @@ flowchart LR
 |---|---|---|
 | **Web** | 홈페이지 화면 (메인, 공지 게시판, 쿠폰 등록). Web.Api 만 호출하는 BFF | 수평 확장 (무상태, 쿠키 키는 공유 필요) |
 | **Web.Api** | 공지 조회, 쿠폰 사용, 내 쿠폰 내역 | 수평 확장 (무상태). 트래픽 대부분 |
+| **Admin.Web** | 운영툴 화면 (Next.js). Server Component/Action 이 Admin.Api 를 서버에서 호출 | 1~2대. 사내망 전용 |
 | **Admin.Api** | 공지 CRUD, 쿠폰 발행/중지/CSV 추출, CS 조회, 지급 실패 재처리, 감사 로그 | 1~2대. 사내망 전용 |
 | **Worker** | Outbox → 게임 서버 전달 | 수평 확장 가능 (행 잠금 기반 분산 처리) |
 
@@ -57,6 +60,7 @@ AspNetCore      ← 두 API 공통 호스팅 구성
 Web.Api / Admin.Api / Worker ← 조립(Composition root) + Controller
 
 Web (홈페이지)  ← 어떤 서버 프로젝트도 참조하지 않음. Web.Api 의 HTTP 계약만 사용
+Admin.Web       ← Next.js (별도 런타임). Admin.Api 의 HTTP 계약만 사용
 ```
 
 - **홈페이지를 API 뒤에 둔 이유**: 화면과 API 를 독립 배포할 수 있고, 게임 런처/모바일 앱도 같은 API 를 쓴다.

@@ -26,6 +26,7 @@ jobs:
     strategy:
       matrix:
         service:
+          - { name: admin-web, project: "", context: src/GamePortal.Admin.Web }
           - { name: web, project: src/GamePortal.Web }
           - { name: web-api, project: src/GamePortal.Web.Api }
           - { name: admin-api, project: src/GamePortal.Admin.Api }
@@ -48,7 +49,7 @@ jobs:
             type=semver,pattern={{version}}
       - uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.service.context || '.' }}
           build-args: PROJECT=${{ matrix.service.project }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -101,10 +102,10 @@ jobs:
           TAG: sha-${{ github.sha }}
         run: |
           echo "$KUBECONFIG_DATA" | base64 -d > kubeconfig && export KUBECONFIG=$PWD/kubeconfig
-          for svc in web web-api admin-api worker; do
+          for svc in web web-api admin-api admin-web worker; do
             kubectl -n game-portal set image deployment/$svc app=${IMAGE_PREFIX}/$svc:$TAG
           done
-          for svc in web web-api admin-api worker; do
+          for svc in web web-api admin-api admin-web worker; do
             kubectl -n game-portal rollout status deployment/$svc --timeout=5m
           done
       - name: Smoke test
@@ -130,7 +131,7 @@ jobs:
         run: |
           echo "$KUBECONFIG_DATA" | base64 -d > kubeconfig && export KUBECONFIG=$PWD/kubeconfig
           VERSION="${TAG#v}"
-          for svc in web web-api admin-api worker; do
+          for svc in web web-api admin-api admin-web worker; do
             kubectl -n game-portal set image deployment/$svc app=${IMAGE_PREFIX}/$svc:$VERSION
             kubectl -n game-portal rollout status deployment/$svc --timeout=10m
           done
