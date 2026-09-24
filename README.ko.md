@@ -334,6 +334,40 @@ curl "localhost:5200/api/v1/coupon-redemptions?accountId=10001" -H "authorizatio
 ```
 </details>
 
+### JetBrains Rider / WebStorm으로 로컬 실행
+
+저장소에 공유 실행 설정([`.run/`](.run))이 들어 있어서, Rider로 `GamePortal.sln`을 열면 자동으로 인식됩니다.
+
+**준비물:** .NET 8 SDK, Node.js 22, Docker Desktop, Rider. Next.js 운영툴은 Rider에 내장된 JavaScript 지원으로 실행됩니다.
+
+1. **인프라 실행:** **`0. Infra (SQL Server + Redis)`**를 실행하거나, 터미널에서 `docker compose up -d sqlserver redis`를 실행합니다.
+2. **프론트엔드 패키지 설치 (최초 1회):** `src/GamePortal.Admin.Web`에서 `npm install`을 실행합니다. `package.json`을 열면 Rider가 설치를 제안하기도 합니다.
+3. **전체 실행:** **`All services`**를 Run 또는 Debug로 실행합니다. 아래 실행 설정이 함께 뜹니다.
+
+| 실행 설정 | 주소 | 참고 |
+|---|---|---|
+| `1. Admin.Api` | http://localhost:5200/swagger | 기동 시 DB 마이그레이션 적용 (Development 전용) |
+| `2. Web.Api` | http://localhost:5100/swagger | |
+| `3. Web (homepage)` | http://localhost:5000 | |
+| `4. Worker` | – | 쿠폰 보상을 게임 서버 목으로 전달 |
+| `5. GameServer.Mock` | http://localhost:5300 | |
+| `6. Admin.Web (ops UI)` | http://localhost:3000 | `npm run dev`. 커밋된 `.env.development` 설정을 사용 |
+
+4. **IDE에서 흐름 따라 해 보기:** [`tools/http/demo.http`](tools/http/demo.http)를 열고 환경을 `local`로 고른 뒤 *Run All Requests in File*을 실행합니다. 로그인 → 공지 등록 → 쿠폰 발행 → 쿠폰 사용 → CS 조회 → 감사 로그 순서로 진행하면서, 각 단계의 기대 상태 코드를 자동으로 검사합니다.
+
+서비스를 넘나드는 디버깅도 됩니다. `All services`를 **Debug**로 실행하고 `CouponRedeemService`와 `OutboxProcessor` 등에 중단점을 걸면, 쿠폰 하나가 HTTP 요청에서 게임 서버 호출까지 가는 과정을 따라갈 수 있습니다.
+
+<details>
+<summary>문제 해결</summary>
+
+- **Apple Silicon (M1~M4):** SQL Server 2022는 x86-64 이미지만 있습니다. *Docker Desktop → Settings → General → Use Rosetta for x86/amd64 emulation*을 켜 주세요.
+- **`0. Infra`에서 "Docker" 서버를 찾을 수 없다는 오류:** 실행 설정에서 본인의 Docker 연결을 선택하거나, 터미널에서 컨테이너를 띄워 주세요.
+- **운영툴을 WebStorm으로 여는 경우:** `src/GamePortal.Admin.Web` 폴더를 열고 `package.json`의 `dev` 스크립트를 실행합니다. .NET 서비스는 Rider나 `docker compose up`으로 따로 띄워야 합니다.
+- **포트가 이미 사용 중인 경우:** `docker compose`로 띄운 앱 컨테이너를 먼저 멈추세요. 로컬 실행에서는 `sqlserver`와 `redis`만 Docker로 띄웁니다.
+- **`global.json` 관련 SDK 오류:** .NET 8 SDK를 설치해 주세요. 이 저장소는 메이저 버전 8로 고정되어 있습니다.
+
+</details>
+
 ---
 
 ## 테스트
@@ -377,6 +411,8 @@ src/
   GamePortal.Admin.Api        운영툴 REST API (+ 역할 정책, 감사 로그)
   GamePortal.Worker           Outbox → 게임 서버 전달
 tools/GameServer.Mock         장애 주입이 가능한 게임 우편함 API 목
+tools/http/demo.http          JetBrains HTTP Client용 전체 흐름 데모 시나리오
+.run/                         Rider 공유 실행 설정 (인프라, 서비스별, "All services")
 tests/                        .NET 단위·통합 테스트
 docs/                         설계 문서, 코드 리뷰 가이드, 스크린샷
 .github/                      CI, CD, AI 리뷰, PR 템플릿, CODEOWNERS, Dependabot

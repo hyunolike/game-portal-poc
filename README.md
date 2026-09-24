@@ -334,6 +334,40 @@ curl "localhost:5200/api/v1/coupon-redemptions?accountId=10001" -H "authorizatio
 ```
 </details>
 
+### Run locally with JetBrains Rider / WebStorm
+
+The repository ships shared run configurations in [`.run/`](.run), so Rider picks them up automatically when you open `GamePortal.sln`.
+
+**Prerequisites:** .NET 8 SDK, Node.js 22, Docker Desktop, and Rider (its bundled JavaScript support runs the Next.js app).
+
+1. **Start the infrastructure.** Run **`0. Infra (SQL Server + Redis)`**, or `docker compose up -d sqlserver redis` in a terminal.
+2. **Install front-end packages once:** `npm install` in `src/GamePortal.Admin.Web`. Rider also offers this when you open `package.json`.
+3. **Start everything.** Run or debug **`All services`**. It launches these configurations:
+
+| Run configuration | URL | Notes |
+|---|---|---|
+| `1. Admin.Api` | http://localhost:5200/swagger | Applies DB migrations on startup (Development only) |
+| `2. Web.Api` | http://localhost:5100/swagger | |
+| `3. Web (homepage)` | http://localhost:5000 | |
+| `4. Worker` | – | Delivers coupon rewards to the mock game server |
+| `5. GameServer.Mock` | http://localhost:5300 | |
+| `6. Admin.Web (ops UI)` | http://localhost:3000 | `npm run dev`. Settings come from the committed `.env.development` |
+
+4. **Try the flow from the IDE.** Open [`tools/http/demo.http`](tools/http/demo.http), select the `local` environment, and choose *Run All Requests in File*. It logs in, posts a notice, issues a coupon, redeems it, checks the CS view and the audit log, and asserts the expected status codes along the way.
+
+Debugging works across services. Start `All services` in **Debug**, set breakpoints in, for example, `CouponRedeemService` and `OutboxProcessor`, and follow one coupon from the HTTP request to the game-server call.
+
+<details>
+<summary>Troubleshooting</summary>
+
+- **Apple Silicon (M1–M4).** SQL Server 2022 only ships an x86-64 image. Enable *Docker Desktop → Settings → General → Use Rosetta for x86/amd64 emulation*.
+- **"Docker" server not found in `0. Infra`.** Pick your Docker connection in the run configuration, or start the containers from a terminal.
+- **Using WebStorm for the ops UI.** Open `src/GamePortal.Admin.Web` and run the `dev` script from `package.json`. The .NET services still need to run, either from Rider or with `docker compose up`.
+- **Port already in use.** Stop `docker compose` app containers first. Locally, only `sqlserver` and `redis` should run in Docker.
+- **SDK error from `global.json`.** Install a .NET 8 SDK. The repo pins major version 8.
+
+</details>
+
 ---
 
 ## Tests
@@ -377,6 +411,8 @@ src/
   GamePortal.Admin.Api        Ops REST API (+ role policies, audit)
   GamePortal.Worker           Outbox → game server delivery
 tools/GameServer.Mock         Game mailbox API mock with failure injection
+tools/http/demo.http          End-to-end demo scenario for the JetBrains HTTP Client
+.run/                         Shared Rider run configurations (infra, each service, "All services")
 tests/                        .NET unit and integration tests
 docs/                         Architecture, code review guide, screenshots
 .github/                      CI, CD, AI review, PR template, CODEOWNERS, Dependabot

@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="6. Admin.Web (ops UI)" type="js.build_tools.npm">
+    <package-json value="$PROJECT_DIR$/src/GamePortal.Admin.Web/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="dev" />
+    </scripts>
+    <node-interpreter value="project" />
+    <envs />
+    <method v="2" />
+  </configuration>
+</component>
