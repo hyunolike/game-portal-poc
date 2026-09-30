@@ -11,6 +11,7 @@
     <PackageReference Include="AspNetCore.HealthChecks.SqlServer" />
     <PackageReference Include="AspNetCore.HealthChecks.Redis" />
     <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
