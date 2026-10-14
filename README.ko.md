@@ -7,6 +7,12 @@
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-000000)
 ![SQL Server 2022](https://img.shields.io/badge/SQL%20Server-2022-CC2927)
 
+<p align="center">
+  <a href="https://cdn.jsdelivr.net/gh/hyunolike/game-portal-poc@341696e069c98df288cff4c9a9939737c1348ea3/docs/media/demo.mp4"><img src="docs/media/demo-thumbnail.jpg" alt="데모 영상: 쿠폰 10장에 40명이 동시에 등록하고 정확히 10명만 성공하는 장면" width="860"></a>
+  <br>
+  <sub>▶ 이미지를 누르면 21초 데모 영상이 열립니다 (소리 있음). 쿠폰 10장에 40명이 몰리는 장면부터 보상이 게임 우편함에 도착하고 운영툴에서 지급 완료를 확인하는 흐름까지 담았습니다.</sub>
+</p>
+
 **게임 홈페이지 + 운영툴** 풀스택 PoC입니다. 실제 게임 웹 개발팀이 실무에서 만드는 방식 그대로 설계했습니다.
 
 게임 웹서비스의 대표 시나리오 두 가지를 다룹니다.

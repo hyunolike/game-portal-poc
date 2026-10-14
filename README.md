@@ -7,6 +7,12 @@
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-000000)
 ![SQL Server 2022](https://img.shields.io/badge/SQL%20Server-2022-CC2927)
 
+<p align="center">
+  <a href="https://cdn.jsdelivr.net/gh/hyunolike/game-portal-poc@341696e069c98df288cff4c9a9939737c1348ea3/docs/media/demo.mp4"><img src="docs/media/demo-thumbnail.jpg" alt="Demo video: 40 players redeem a 10-coupon campaign at once, and exactly 10 succeed" width="860"></a>
+  <br>
+  <sub>▶ Click the image to watch the 21-second demo (sound on). 40 players race for 10 coupons, one reward travels to the in-game mailbox, and the ops tool confirms delivery.</sub>
+</p>
+
 A full-stack proof of concept for a **game website + operations (admin) tool**, built the way a production game-web team would build it.
 
 It covers the two scenarios that define most game web services:
