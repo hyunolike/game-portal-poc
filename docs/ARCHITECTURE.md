@@ -235,7 +235,7 @@ flowchart LR
     PR[Pull Request] --> CI{CI}
     CI --> F[format 검사] --> B[빌드<br/>경고=에러] --> M[마이그레이션 누락 검사] --> UT[단위 테스트] --> IT[통합 테스트<br/>Testcontainers SQL Server] --> D[Docker 빌드]
     PR --> AI[AI 1차 리뷰<br/>Claude] --> H[사람 리뷰<br/>CODEOWNERS]
-    H --> MG[main 머지]
+    H --> MG[develop 머지]
     MG --> IMG[이미지 빌드/푸시 GHCR] --> MB[EF 마이그레이션 번들] --> ST[staging 배포<br/>자동] --> SM[스모크 테스트]
     TAG[v* 태그] --> PRD[production 배포<br/>승인 필요]
 ```

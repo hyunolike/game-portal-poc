@@ -258,7 +258,7 @@ flowchart LR
     PR["Pull request"] --> Fmt["dotnet format"] --> Build["Build<br/>warnings = errors"] --> Mig["Pending-migration<br/>check"] --> Tests["Unit + integration<br/>(Testcontainers)"] --> Docker["Docker build"]
     PR --> FE["Admin.Web<br/>lint · typecheck · test · build"] --> Docker
     PR --> AI["AI first-pass review<br/>(Claude)"] --> Human["Human review<br/>CODEOWNERS"]
-    Docker --> Merge["Merge to main"]
+    Docker --> Merge["Merge to develop"]
     Human --> Merge
     Merge --> Push["Push images<br/>GHCR"] --> Bundle["EF migration bundle<br/>+ idempotent SQL"] --> Staging["Staging<br/>auto deploy"]
     Tag["Tag v*"] --> Prod["Production<br/>manual approval"]

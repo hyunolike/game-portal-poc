@@ -258,7 +258,7 @@ flowchart LR
     PR["Pull Request"] --> Fmt["dotnet format"] --> Build["빌드<br/>경고 = 에러"] --> Mig["마이그레이션<br/>누락 검사"] --> Tests["단위 + 통합 테스트<br/>(Testcontainers)"] --> Docker["Docker 빌드"]
     PR --> FE["Admin.Web<br/>lint · typecheck · test · build"] --> Docker
     PR --> AI["AI 1차 리뷰<br/>(Claude)"] --> Human["사람 리뷰<br/>CODEOWNERS"]
-    Docker --> Merge["main 머지"]
+    Docker --> Merge["develop 머지"]
     Human --> Merge
     Merge --> Push["이미지 푸시<br/>GHCR"] --> Bundle["EF 마이그레이션 번들<br/>+ idempotent SQL"] --> Staging["staging<br/>자동 배포"]
     Tag["v* 태그"] --> Prod["production<br/>승인 후 배포"]

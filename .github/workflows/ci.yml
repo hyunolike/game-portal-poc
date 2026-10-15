@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [develop]
   push:
-    branches: [main]
+    branches: [develop]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -47,7 +47,7 @@ jobs:
 
       # 엔티티를 바꾸고 마이그레이션을 빠뜨린 PR 차단
       - name: Check pending EF migrations
-        run: dotnet ef migrations has-pending-model-changes -p src/GamePortal.Infrastructure -s src/GamePortal.Infrastructure --no-build -c Release
+        run: dotnet ef migrations has-pending-model-changes -p src/GamePortal.Infrastructure -s src/GamePortal.Infrastructure --no-build --configuration Release
 
       - name: Unit tests
         run: >
