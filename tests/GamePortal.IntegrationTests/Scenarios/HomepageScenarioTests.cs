@@ -29,6 +29,52 @@ public partial class HomepageScenarioTests(PortalTestFixture fixture)
     }
 
     [Fact]
+    public async Task 홈_화면은_키_비주얼과_게임_시작_버튼을_보인다()
+    {
+        var html = await fixture.Front.CreateClient().GetStringAsync("/");
+
+        Assert.Contains("/images/keyart-season3.webp", html);
+        // 머리말과 히어로 두 곳 모두 게임 시작으로 이어진다
+        Assert.Equal(2, Regex.Matches(html, "href=\"/play\"[^>]*>게임 시작</a>").Count);
+    }
+
+    [Fact]
+    public async Task 키_비주얼_그림이_실제로_내려간다()
+    {
+        var client = fixture.Front.CreateClient();
+
+        foreach (var path in new[] { "/images/keyart-season3.webp", "/images/keyart-season3-960.webp" })
+        {
+            var response = await client.GetAsync(path);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("image/webp", response.Content.Headers.ContentType?.MediaType);
+        }
+    }
+
+    [Fact]
+    public async Task 로그인하지_않고_게임_시작을_누르면_로그인_후_게임_시작으로_돌아온다()
+    {
+        var client = fixture.Front.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/play");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/account/login?ReturnUrl=%2Fplay", response.Headers.Location!.PathAndQuery);
+    }
+
+    [Fact]
+    public async Task 게임_시작_화면은_런처를_열되_주소에_토큰을_싣지_않는다()
+    {
+        var client = fixture.Front.CreateClient();
+        await LoginAsync(client, Interlocked.Increment(ref _accountSeed));
+
+        var html = await client.GetStringAsync("/play");
+
+        Assert.Contains("href=\"etherfall-launcher://start\"", html);
+        Assert.DoesNotContain("token", Regex.Match(html, "etherfall-launcher://[^\"]*").Value, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task 공지_본문의_HTML_은_실행되지_않고_줄바꿈은_유지된다()
     {
         var id = await CreateNoticeAsync(new CreateNoticeRequest(

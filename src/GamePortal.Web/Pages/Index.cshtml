@@ -15,16 +15,21 @@
 }
 
 <section class="hero">
+    @* 시즌 키 비주얼. 글자는 그림의 왼쪽 어두운 하늘 위에 얹는다. 좁은 화면에는 작은 파일을 내려보낸다. *@
+    <picture class="hero__art">
+        <source media="(max-width: 720px)" srcset="~/images/keyart-season3-960.webp" />
+        <img src="~/images/keyart-season3.webp" alt="" width="1672" height="941" fetchpriority="high" decoding="async" />
+    </picture>
     <div class="hero__inner">
         <p class="hero__eyebrow">시즌 3 · 무너진 성소</p>
         <h1 class="hero__title">별이 떨어진 자리에서<br />다시 여정을 시작하세요</h1>
         <p class="hero__lede">새로운 지역 「잿빛 첨탑」과 레이드 던전이 열렸습니다. 쿠폰을 등록하고 시즌 한정 보상을 받아 가세요.</p>
         <div class="hero__actions">
-            <a class="btn btn--primary" href="/coupon">쿠폰 등록하기</a>
+            <a class="btn btn--primary btn--lg" href="/play">게임 시작</a>
+            <a class="btn btn--ghost" href="/coupon">쿠폰 등록</a>
             <a class="btn btn--ghost" href="/notices?category=Update">업데이트 노트</a>
         </div>
     </div>
-    <div class="hero__sky" aria-hidden="true"></div>
 </section>
 
 <div class="container home-grid">

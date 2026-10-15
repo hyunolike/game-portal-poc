@@ -32,8 +32,8 @@ The fictional game is **ETHERFALL**. The UI is in Korean because the target serv
 
 | Home | Coupon redemption |
 |---|---|
-| <img src="docs/images/web-home.png" alt="Home: pinned maintenance banner, hero, latest news, coupon CTA" width="480"> | <img src="docs/images/web-coupon-success.png" alt="Coupon redeemed: rewards list and redemption history" width="480"> |
-| Pinned maintenance notices become a site-wide banner. | Rewards are shown by item name. Delivery happens asynchronously through the game mailbox. |
+| <img src="docs/images/web-home.png" alt="Home: pinned maintenance banner, season key art with a game start button, latest news, coupon CTA" width="480"> | <img src="docs/images/web-coupon-success.png" alt="Coupon redeemed: rewards list and redemption history" width="480"> |
+| A game start button sits on the season key art, and pinned maintenance notices become a site-wide banner. | Rewards are shown by item name. Delivery happens asynchronously through the game mailbox. |
 
 | Notice board | Notice detail | Error by code | Mobile |
 |---|---|---|---|
@@ -381,7 +381,7 @@ Debugging works across services. Start `All services` in **Debug**, set breakpoi
 | Suite | Count | What it proves |
 |---|---:|---|
 | .NET unit (`tests/GamePortal.UnitTests`) | 56 | Domain rules and boundaries, validators, cache fail-open, front-end ↔ server error-code contract |
-| .NET integration (`tests/GamePortal.IntegrationTests`) | 33 | Real SQL Server via Testcontainers. APIs **and** the Razor website run end to end in process |
+| .NET integration (`tests/GamePortal.IntegrationTests`) | 37 | Real SQL Server via Testcontainers. APIs **and** the Razor website run end to end in process |
 | Admin.Web unit (`npm test`) | 13 | KST conversion, error mapping, role rules, audit value formatting |
 | Admin.Web E2E (`npm run e2e`) | 4 | Playwright against the full running stack, including real Worker delivery |
 

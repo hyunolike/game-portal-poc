@@ -32,8 +32,8 @@
 
 | 메인 | 쿠폰 등록 |
 |---|---|
-| <img src="docs/images/web-home.png" alt="메인: 점검 배너, 히어로, 새 소식, 쿠폰 안내" width="480"> | <img src="docs/images/web-coupon-success.png" alt="쿠폰 등록 성공: 보상 목록과 사용 내역" width="480"> |
-| 고정된 점검 공지가 사이트 상단 배너로 노출됩니다. | 보상은 아이템 이름으로 보여 주고, 게임 우편함으로 비동기 지급됩니다. |
+| <img src="docs/images/web-home.png" alt="메인: 점검 배너, 시즌 키 비주얼과 게임 시작 버튼, 새 소식, 쿠폰 안내" width="480"> | <img src="docs/images/web-coupon-success.png" alt="쿠폰 등록 성공: 보상 목록과 사용 내역" width="480"> |
+| 시즌 키 비주얼 위에 게임 시작 버튼을 두고, 고정된 점검 공지는 상단 배너로 노출됩니다. | 보상은 아이템 이름으로 보여 주고, 게임 우편함으로 비동기 지급됩니다. |
 
 | 공지 게시판 | 공지 상세 | 에러 코드별 안내 | 모바일 |
 |---|---|---|---|
@@ -381,7 +381,7 @@ curl "localhost:5200/api/v1/coupon-redemptions?accountId=10001" -H "authorizatio
 | 테스트 | 개수 | 검증하는 것 |
 |---|---:|---|
 | .NET 단위 (`tests/GamePortal.UnitTests`) | 56 | 도메인 규칙과 경계값, 검증기, 캐시 폴백, 홈페이지 ↔ 서버 에러 코드 계약 |
-| .NET 통합 (`tests/GamePortal.IntegrationTests`) | 33 | Testcontainers로 띄운 실제 SQL Server에서 API와 Razor 홈페이지를 전 구간 실행 |
+| .NET 통합 (`tests/GamePortal.IntegrationTests`) | 37 | Testcontainers로 띄운 실제 SQL Server에서 API와 Razor 홈페이지를 전 구간 실행 |
 | 운영툴 단위 (`npm test`) | 13 | KST 변환, 에러 매핑, 역할 규칙, 감사 로그 표시 변환 |
 | 운영툴 E2E (`npm run e2e`) | 4 | 전체 스택을 띄운 상태에서 Playwright로 실행. 실제 Worker 전달까지 포함 |
 

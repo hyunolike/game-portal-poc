@@ -24,6 +24,7 @@ builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new T
 builder.Services.AddRazorPages(o =>
 {
     o.Conventions.AuthorizePage("/Coupon/Index");
+    o.Conventions.AuthorizePage("/Play"); // 게임 시작은 로그인한 계정으로 한다
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddPortalCookieAuth(builder.Environment);
