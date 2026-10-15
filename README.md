@@ -282,6 +282,7 @@ Schema changes run as their own pipeline step, using the EF migration bundle and
 | Integration | Transactional Outbox, idempotency key, two-level retry (Polly, then exponential backoff to a dead letter) | You can't have a distributed transaction between the web DB and the game server |
 | Data access | EF Core for CRUD. Dapper only for the lock-hinted Outbox claim. No extra repository layer | `DbContext` is already a unit of work. Hiding `IQueryable` makes query tuning harder |
 | Audit | A `SaveChangesInterceptor` writes audit rows in the same transaction. HiLo IDs make IDs known before `INSERT` | Hand-written audit calls get forgotten |
+| Coupon targeting | Minimum character level. When set, a character must be chosen; the rule lives in the campaign entity (`EnsureEligible`) and ineligible requests are rejected before the transaction, so stock is untouched | Stops growth-support coupons from being farmed with freshly created characters. Levels never go down, so the check cannot go stale before delivery |
 | Recipient | Account storage or one character. The character is re-read from the game server to verify ownership, and its server and name at redemption time are stored | Trusting the client's character ID would let anyone send rewards to someone else's character, and CS must answer from the record even after a rename |
 | Auth | Both front ends are BFFs: tokens live only in HttpOnly cookies and APIs are called server-side | XSS can't steal tokens, and API hosts aren't exposed to browsers |
 | Errors | RFC 7807 ProblemDetails with a stable `code` and a `traceId` | Clients branch on codes, not message text. CS can quote the trace ID |
@@ -386,8 +387,8 @@ Debugging works across services. Start `All services` in **Debug**, set breakpoi
 
 | Suite | Count | What it proves |
 |---|---:|---|
-| .NET unit (`tests/GamePortal.UnitTests`) | 64 | Domain rules and boundaries, validators, cache fail-open, game-server character lookup errors, front-end ↔ server error-code contract |
-| .NET integration (`tests/GamePortal.IntegrationTests`) | 42 | Real SQL Server via Testcontainers. APIs **and** the Razor website run end to end in process |
+| .NET unit (`tests/GamePortal.UnitTests`) | 78 | Domain rules and boundaries, validators, cache fail-open, game-server character lookup errors, front-end ↔ server error-code contract |
+| .NET integration (`tests/GamePortal.IntegrationTests`) | 44 | Real SQL Server via Testcontainers. APIs **and** the Razor website run end to end in process |
 | Admin.Web unit (`npm test`) | 14 | KST conversion, error mapping, role rules, audit value formatting |
 | Admin.Web E2E (`npm run e2e`) | 4 | Playwright against the full running stack, including real Worker delivery |
 

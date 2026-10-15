@@ -21,6 +21,7 @@ export function CampaignForm({ defaultStart, defaultEnd }: { defaultStart: strin
   const [sharedCode, setSharedCode] = useState("");
   const [count, setCount] = useState(1000);
   const [max, setMax] = useState("");
+  const [minLevel, setMinLevel] = useState("");
   const [rewards, setRewards] = useState<RewardRow[]>([{ key: 0, itemId: 1001, quantity: 100 }]);
 
   const updateRow = (key: number, patch: Partial<RewardRow>) =>
@@ -30,6 +31,7 @@ export function CampaignForm({ defaultStart, defaultEnd }: { defaultStart: strin
   const summary = [
     type === "Shared" ? `공용 코드 ${sharedCode.toUpperCase() || "(미입력)"}` : `고유 코드 ${formatNumber(count)}개`,
     max ? `선착순 ${formatNumber(Number(max))}명` : "수량 무제한",
+    minLevel ? `대상: Lv.${minLevel} 이상 캐릭터 (계정 보관함 불가)` : "대상 제한 없음",
     `보상: ${rewards.map((r) => `${itemName(r.itemId)} ×${formatNumber(r.quantity)}`).join(", ")}`,
   ].join("\n");
 
@@ -92,6 +94,23 @@ export function CampaignForm({ defaultStart, defaultEnd }: { defaultStart: strin
         <div className="field">
           <label htmlFor="maxRedemptions">선착순 수량 (선택)</label>
           <input id="maxRedemptions" name="maxRedemptions" type="number" min={1} value={max} onChange={(e) => setMax(e.target.value)} placeholder="무제한" />
+        </div>
+      </div>
+
+      <div className="form__row">
+        <div className="field">
+          <label htmlFor="minCharacterLevel">최소 캐릭터 레벨 (선택)</label>
+          <input
+            id="minCharacterLevel"
+            name="minCharacterLevel"
+            type="number"
+            min={1}
+            max={300}
+            value={minLevel}
+            onChange={(e) => setMinLevel(e.target.value)}
+            placeholder="제한 없음"
+          />
+          <p className="hint">정하면 이 레벨 이상인 캐릭터를 골라야 받을 수 있고, 계정 보관함으로는 받을 수 없습니다.</p>
         </div>
       </div>
 

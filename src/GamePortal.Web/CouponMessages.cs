@@ -16,6 +16,8 @@ public static class CouponMessages
         ["COUPON_ALREADY_REDEEMED"] = "이미 보상을 받은 쿠폰입니다. 계정당 1회만 사용할 수 있습니다.",
         ["COUPON_SOLD_OUT"] = "선착순 수량이 모두 소진되었습니다.",
         ["COUPON_CHARACTER_NOT_FOUND"] = "선택한 캐릭터를 찾을 수 없습니다. 목록을 새로 불러온 뒤 다시 골라 주세요.",
+        ["COUPON_CHARACTER_REQUIRED"] = "캐릭터를 골라야 받을 수 있는 쿠폰입니다. 받을 곳에서 캐릭터를 선택해 주세요.",
+        ["COUPON_LEVEL_TOO_LOW"] = "선택한 캐릭터의 레벨이 쿠폰 대상 조건보다 낮습니다. 쿠폰 안내의 레벨 조건을 확인해 주세요.",
         ["GAME_SERVER_UNAVAILABLE"] = "지금은 게임 서버에 연결할 수 없습니다. 잠시 후 다시 시도하거나, 계정 보관함으로 받아 주세요.",
         ["VALIDATION_FAILED"] = "쿠폰 번호 형식이 올바르지 않습니다. 영문과 숫자만 입력해 주세요.",
         ["TOO_MANY_REQUESTS"] = "쿠폰 입력 시도가 너무 많습니다. 1분 후 다시 시도해 주세요.",

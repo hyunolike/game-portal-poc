@@ -1,3 +1,4 @@
+using GamePortal.Domain.Characters;
 using GamePortal.Domain.Common;
 
 namespace GamePortal.Domain.Coupons;
@@ -7,6 +8,9 @@ namespace GamePortal.Domain.Coupons;
 /// </summary>
 public class CouponCampaign : IAuditableEntity
 {
+    /// <summary>운영툴에서 정할 수 있는 최소 캐릭터 레벨의 상한. 게임의 만렙보다 넉넉하게 둔다.</summary>
+    public const int MaxCharacterLevel = 300;
+
     private readonly List<RewardItem> _rewards = [];
 
     private CouponCampaign()
@@ -35,6 +39,12 @@ public class CouponCampaign : IAuditableEntity
 
     public bool IsEnabled { get; private set; }
 
+    /// <summary>
+    /// 대상 조건: 이 레벨 이상인 캐릭터만 받을 수 있다. null 이면 제한 없음(계정 보관함으로도 받을 수 있음).
+    /// 성장 지원 쿠폰을 막 만든 캐릭터로 반복해서 받아 가는 것을 막는 데 쓴다.
+    /// </summary>
+    public int? MinCharacterLevel { get; private set; }
+
     public IReadOnlyList<RewardItem> Rewards => _rewards;
 
     public long CreatedBy { get; private set; }
@@ -49,7 +59,8 @@ public class CouponCampaign : IAuditableEntity
         int? maxRedemptions,
         IEnumerable<RewardItem> rewards,
         long operatorId,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        int? minCharacterLevel = null)
     {
         if (endsAt <= startsAt)
         {
@@ -61,6 +72,11 @@ public class CouponCampaign : IAuditableEntity
             throw new ArgumentOutOfRangeException(nameof(maxRedemptions));
         }
 
+        if (minCharacterLevel is < 1 or > MaxCharacterLevel)
+        {
+            throw new ArgumentOutOfRangeException(nameof(minCharacterLevel));
+        }
+
         var campaign = new CouponCampaign
         {
             Name = Guard.NotBlank(name, nameof(name), 100),
@@ -68,6 +84,7 @@ public class CouponCampaign : IAuditableEntity
             StartsAt = startsAt,
             EndsAt = endsAt,
             MaxRedemptions = maxRedemptions,
+            MinCharacterLevel = minCharacterLevel,
             IsEnabled = true,
             CreatedBy = operatorId,
             CreatedAt = now,
@@ -100,6 +117,29 @@ public class CouponCampaign : IAuditableEntity
         if (now >= EndsAt)
         {
             throw new DomainException(CouponErrors.Expired);
+        }
+    }
+
+    /// <summary>
+    /// 대상 조건 검증. <paramref name="recipient"/> 가 null 이면 계정 보관함으로 받는 요청이다.
+    /// 레벨 조건이 있는 쿠폰은 캐릭터를 골라야 하고, 그 캐릭터가 레벨을 넘어야 한다.
+    /// 레벨은 내려가지 않으므로 확인한 뒤 트랜잭션까지의 틈에 조건이 깨질 일은 없다.
+    /// </summary>
+    public void EnsureEligible(GameCharacter? recipient)
+    {
+        if (MinCharacterLevel is not { } minLevel)
+        {
+            return;
+        }
+
+        if (recipient is null)
+        {
+            throw new DomainException(CouponErrors.CharacterRequired);
+        }
+
+        if (recipient.Level < minLevel)
+        {
+            throw new DomainException(CouponErrors.LevelTooLow);
         }
     }
 

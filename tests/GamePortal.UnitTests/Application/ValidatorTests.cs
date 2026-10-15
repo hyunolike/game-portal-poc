@@ -48,6 +48,19 @@ public class ValidatorTests
         Assert.Equal(expected, result.IsValid);
     }
 
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    [InlineData(CouponCampaign.MaxCharacterLevel, true)]
+    [InlineData(CouponCampaign.MaxCharacterLevel + 1, false)]
+    public void 최소_캐릭터_레벨은_비우거나_1부터_상한까지(int? minLevel, bool expected)
+    {
+        var request = Request(CouponType.Shared, sharedCode: "WELCOME", count: null) with { MinCharacterLevel = minLevel };
+
+        Assert.Equal(expected, new CreateCampaignRequestValidator().Validate(request).IsValid);
+    }
+
     private static CreateCampaignRequest Request(CouponType type, string? sharedCode, int? count) => new(
         "캠페인", type, Start, Start.AddDays(1), null, [new RewardItemDto(1001, 1)], sharedCode, count);
 }

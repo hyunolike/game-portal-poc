@@ -293,6 +293,57 @@ public class CouponScenarioTests(PortalTestFixture fixture)
         Assert.False(await db.CouponRedemptions.AnyAsync(r => r.AccountId == accountId));
     }
 
+    [Fact]
+    public async Task 레벨_조건_쿠폰은_조건을_넘는_캐릭터만_받고_못_받은_요청은_수량을_줄이지_않는다()
+    {
+        var code = NewCode();
+        var admin = await fixture.Admin.CreateOperatorClientAsync("Admin");
+        var create = await admin.PostAsJsonAsync(
+            "/api/v1/coupon-campaigns",
+            SharedCampaign(code, max: 10) with { MinCharacterLevel = 30 },
+            TestJson.Options);
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var campaignId = (await create.ReadAsAsync<IdResponse>()).Id;
+
+        var accountId = NextAccountId();
+        fixture.GameCharacters.Set(
+            accountId,
+            new GameCharacter(1, "아스테라", 501, "새벽검객", 8),
+            new GameCharacter(1, "아스테라", 502, "별의순례자", 30));
+        var player = await fixture.Web.CreatePlayerClientAsync(accountId);
+
+        var noCharacter = await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code));
+        var lowLevel = await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code, CharacterId: 501));
+
+        Assert.Equal("COUPON_CHARACTER_REQUIRED", await noCharacter.ReadErrorCodeAsync());
+        Assert.Equal("COUPON_LEVEL_TOO_LOW", await lowLevel.ReadErrorCodeAsync());
+        await using (var db = fixture.CreateDbContext())
+        {
+            Assert.Equal(0, (await db.CouponCampaigns.AsNoTracking().SingleAsync(c => c.Id == campaignId)).RedeemedCount);
+        }
+
+        var ok = await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code, CharacterId: 502));
+
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        var detail = await (await admin.GetAsync($"/api/v1/coupon-campaigns/{campaignId}")).ReadAsAsync<CampaignDetailDto>();
+        Assert.Equal(30, detail.MinCharacterLevel);
+        Assert.Equal(1, detail.RedeemedCount);
+    }
+
+    [Fact]
+    public async Task 최소_레벨이_범위를_벗어나면_발행할_수_없다()
+    {
+        var admin = await fixture.Admin.CreateOperatorClientAsync("Admin");
+
+        var response = await admin.PostAsJsonAsync(
+            "/api/v1/coupon-campaigns",
+            SharedCampaign(NewCode(), null) with { MinCharacterLevel = 0 },
+            TestJson.Options);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("VALIDATION_FAILED", await response.ReadErrorCodeAsync());
+    }
+
     private async Task<long> CreateSharedCampaignAsync(string code, int? maxRedemptions)
     {
         var admin = await fixture.Admin.CreateOperatorClientAsync("Admin");

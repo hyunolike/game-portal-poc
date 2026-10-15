@@ -49,6 +49,8 @@ export interface CampaignDetail extends CampaignSummary {
   codeCount: number;
   createdBy: number;
   createdAt: string;
+  /** 대상 조건. null 이면 제한 없음 */
+  minCharacterLevel: number | null;
 }
 
 export interface Redemption {

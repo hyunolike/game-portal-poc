@@ -33,7 +33,8 @@ public sealed record CreateCampaignRequest(
     int? MaxRedemptions,
     IReadOnlyList<RewardItemDto> Rewards,
     string? SharedCode,
-    int? UniqueCodeCount);
+    int? UniqueCodeCount,
+    int? MinCharacterLevel = null); // 대상 조건. null 이면 제한 없음
 
 public sealed record CampaignSummaryDto(
     long Id,
@@ -57,7 +58,8 @@ public sealed record CampaignDetailDto(
     IReadOnlyList<RewardItemDto> Rewards,
     int CodeCount,
     long CreatedBy,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    int? MinCharacterLevel = null);
 
 public sealed record CouponCodeExportRow(string Code, long? RedeemedByAccountId, DateTimeOffset? RedeemedAt);
 

@@ -67,6 +67,7 @@ public sealed class CouponRedeemService(
         var recipient = request.CharacterId is { } characterId
             ? await FindMyCharacterAsync(accountId, characterId, cancellationToken)
             : null;
+        campaign.EnsureEligible(recipient);
 
         // 2. 원자적 처리 (트랜잭션). SQL Server 일시적 오류 재시도 정책과 함께 쓰려면 ExecutionStrategy 로 감싸야 한다.
         var strategy = db.Database.CreateExecutionStrategy();

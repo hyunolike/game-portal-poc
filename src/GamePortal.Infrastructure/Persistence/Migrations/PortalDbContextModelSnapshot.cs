@@ -106,6 +106,9 @@ namespace GamePortal.Infrastructure.Persistence.Migrations
                     b.Property<int?>("MaxRedemptions")
                         .HasColumnType("int");
 
+                    b.Property<int?>("MinCharacterLevel")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)

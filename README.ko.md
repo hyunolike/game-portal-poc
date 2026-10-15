@@ -283,6 +283,7 @@ DB 스키마 변경은 앱 배포와 분리된 단계에서 실행합니다. EF 
 | 데이터 접근 | CRUD는 EF Core, 락 힌트가 필요한 Outbox 선점만 Dapper. Repository 계층을 한 겹 더 두지 않음 | `DbContext`가 이미 Unit of Work이고, `IQueryable`을 감추면 쿼리 튜닝이 어려워짐 |
 | 감사 로그 | `SaveChangesInterceptor`가 같은 트랜잭션으로 기록. HiLo로 `INSERT` 전에 Id 확정 | 서비스 코드에서 직접 남기면 누락이 생김 |
 | 인증 | 두 화면 모두 BFF. 토큰은 HttpOnly 쿠키에만 두고 API는 서버에서 호출 | XSS로 토큰을 훔칠 수 없고, API 주소도 브라우저에 노출되지 않음 |
+| 쿠폰 대상 조건 | 최소 캐릭터 레벨. 조건이 있으면 캐릭터를 골라야 하고, 검증은 캠페인 엔티티의 `EnsureEligible`이 맡음. 못 받은 요청은 트랜잭션 전에 걸러져 수량을 건드리지 않음 | 성장 지원 쿠폰을 막 만든 캐릭터로 반복해서 받아 가는 일을 막음. 레벨은 내려가지 않아 확인과 지급 사이에 조건이 깨지지 않음 |
 | 받을 곳 | 계정 보관함 또는 캐릭터 하나. 캐릭터는 게임 서버에서 다시 읽어 이 계정의 것인지 확인하고, 사용 시점의 서버와 이름을 남김 | 요청의 캐릭터 ID를 믿으면 남의 캐릭터로 보상을 보낼 수 있고, 이름이 바뀐 뒤에도 CS가 당시 기록으로 답해야 함 |
 | 에러 | RFC 7807 ProblemDetails + 고정된 `code` + `traceId` | 클라이언트는 문구가 아닌 코드로 분기하고, CS는 추적 ID로 로그를 찾음 |
 | 계약 | 서버에 쿠폰 에러 코드가 추가됐는데 홈페이지 문구가 없으면 단위 테스트가 실패 | 화면 문구와 서버 계약이 어긋나지 않게 유지 |
@@ -386,8 +387,8 @@ curl "localhost:5200/api/v1/coupon-redemptions?accountId=10001" -H "authorizatio
 
 | 테스트 | 개수 | 검증하는 것 |
 |---|---:|---|
-| .NET 단위 (`tests/GamePortal.UnitTests`) | 64 | 도메인 규칙과 경계값, 검증기, 캐시 폴백, 게임 서버 캐릭터 조회 오류 처리, 홈페이지 ↔ 서버 에러 코드 계약 |
-| .NET 통합 (`tests/GamePortal.IntegrationTests`) | 42 | Testcontainers로 띄운 실제 SQL Server에서 API와 Razor 홈페이지를 전 구간 실행 |
+| .NET 단위 (`tests/GamePortal.UnitTests`) | 78 | 도메인 규칙과 경계값, 검증기, 캐시 폴백, 게임 서버 캐릭터 조회 오류 처리, 홈페이지 ↔ 서버 에러 코드 계약 |
+| .NET 통합 (`tests/GamePortal.IntegrationTests`) | 44 | Testcontainers로 띄운 실제 SQL Server에서 API와 Razor 홈페이지를 전 구간 실행 |
 | 운영툴 단위 (`npm test`) | 14 | KST 변환, 에러 매핑, 역할 규칙, 감사 로그 표시 변환 |
 | 운영툴 E2E (`npm run e2e`) | 4 | 전체 스택을 띄운 상태에서 Playwright로 실행. 실제 Worker 전달까지 포함 |
 

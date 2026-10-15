@@ -80,6 +80,10 @@ export default async function CampaignDetailPage({
             <dd>{formatKst(campaign.startsAt)} ~ {formatKst(campaign.endsAt)}</dd>
           </div>
           <div>
+            <dt>대상 조건</dt>
+            <dd>{campaign.minCharacterLevel ? `Lv.${campaign.minCharacterLevel} 이상 캐릭터` : "제한 없음"}</dd>
+          </div>
+          <div>
             <dt>보상</dt>
             <dd>
               <ul className="reward-list">
