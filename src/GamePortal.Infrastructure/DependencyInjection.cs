@@ -60,6 +60,35 @@ public static class DependencyInjection
         return services;
     }
 
+    /// <summary>
+    /// Web.Api 전용: 게임 서버 캐릭터 조회. 유저가 기다리는 요청이라 시간 제한을 짧게 두고,
+    /// 게임 서버가 계속 실패하면 서킷 브레이커가 요청을 바로 끊어 Web.Api 스레드가 묶이지 않게 한다.
+    /// </summary>
+    public static IServiceCollection AddGameCharacterDirectory(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<GameServerOptions>()
+            .Bind(configuration.GetSection(GameServerOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddHttpClient<IGameCharacterDirectory, GameCharacterDirectory>((sp, http) =>
+            {
+                var o = sp.GetRequiredService<IOptions<GameServerOptions>>().Value;
+                http.BaseAddress = new Uri(o.BaseUrl.TrimEnd('/') + "/");
+                http.DefaultRequestHeaders.Add("X-Api-Key", o.ApiKey);
+            })
+            .AddStandardResilienceHandler(o =>
+            {
+                o.Retry.MaxRetryAttempts = 1;
+                o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(1);
+                o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(3);
+                // 서킷 표본 구간은 시도 제한 시간의 2배 이상이어야 한다(옵션 검증 규칙).
+                o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(10);
+            });
+
+        return services;
+    }
+
     /// <summary>Worker 전용: Outbox → 게임 서버 전달.</summary>
     public static IServiceCollection AddOutboxDispatcher(this IServiceCollection services, IConfiguration configuration)
     {

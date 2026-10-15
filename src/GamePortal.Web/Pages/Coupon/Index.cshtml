@@ -16,6 +16,27 @@
             <button type="submit" class="btn btn--primary">등록</button>
         </div>
         <span asp-validation-for="Code" class="field-error"></span>
+
+        <fieldset class="recipient">
+            <legend class="coupon-form__label">받을 곳</legend>
+            <label class="recipient__option">
+                <input type="radio" name="CharacterId" value="" checked="@(Model.CharacterId is null)" />
+                <span class="recipient__name">계정 보관함</span>
+                <span class="recipient__meta">모든 캐릭터가 함께 쓰는 보관함</span>
+            </label>
+            @foreach (var c in Model.Characters)
+            {
+                <label class="recipient__option">
+                    <input type="radio" name="CharacterId" value="@c.CharacterId" checked="@(Model.CharacterId == c.CharacterId)" />
+                    <span class="recipient__name"><span class="recipient__server">@c.ServerName</span> @c.Name</span>
+                    <span class="recipient__meta">Lv.@c.Level</span>
+                </label>
+            }
+            @if (Model.CharactersUnavailable)
+            {
+                <p class="recipient__notice">지금은 캐릭터 목록을 불러올 수 없습니다. 계정 보관함으로는 받을 수 있습니다.</p>
+            }
+        </fieldset>
     </form>
 
     @if (Model.Redeemed is { } r)
@@ -23,6 +44,7 @@
         <section class="result result--ok" role="status" aria-live="polite">
             <h2>쿠폰이 등록되었습니다</h2>
             <p class="result__campaign">@r.CampaignName</p>
+            <p class="result__recipient">받는 곳: <strong>@RecipientLabel(r.ServerName, r.CharacterName)</strong></p>
             <ul class="rewards">
                 @foreach (var item in r.Rewards)
                 {
@@ -53,15 +75,20 @@
         {
             <table class="history__table">
                 <thead>
-                    <tr><th scope="col">쿠폰</th><th scope="col">등록 일시 (KST)</th></tr>
+                    <tr><th scope="col">쿠폰</th><th scope="col">받은 곳</th><th scope="col">등록 일시 (KST)</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var h in Model.History.Items)
                     {
-                        <tr><td>@h.CampaignName</td><td class="num">@NoticeDisplay.DateTime(h.RedeemedAt)</td></tr>
+                        <tr><td>@h.CampaignName</td><td>@RecipientLabel(h.ServerName, h.CharacterName)</td><td class="num">@NoticeDisplay.DateTime(h.RedeemedAt)</td></tr>
                     }
                 </tbody>
             </table>
         }
     </section>
 </div>
+
+@functions {
+    private static string RecipientLabel(string? serverName, string? characterName) =>
+        characterName is null ? "계정 보관함" : $"{serverName} {characterName}";
+}

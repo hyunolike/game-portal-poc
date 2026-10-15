@@ -172,6 +172,13 @@ namespace GamePortal.Infrastructure.Persistence.Migrations
                     b.Property<long>("CampaignId")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("CharacterId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CharacterName")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<long>("CouponCodeId")
                         .HasColumnType("bigint");
 
@@ -180,6 +187,13 @@ namespace GamePortal.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("RedeemedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("ServerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ServerName")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.HasKey("Id");
 

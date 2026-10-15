@@ -49,3 +49,9 @@ export function formatCouponCode(code: string, type: "Shared" | "Unique"): strin
   if (type === "Shared") return code;
   return code.match(/.{1,4}/g)?.join("-") ?? code;
 }
+
+/** 보상을 받은 곳. 캐릭터가 없으면 계정 보관함(모든 캐릭터 공용)으로 받은 것이다. */
+export function formatRecipient(serverName: string | null | undefined, characterName: string | null | undefined): string {
+  if (!characterName) return "계정 보관함";
+  return serverName ? `${serverName} · ${characterName}` : characterName;
+}

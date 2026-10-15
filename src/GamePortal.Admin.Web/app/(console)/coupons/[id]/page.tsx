@@ -7,7 +7,7 @@ import { Usage } from "@/components/Usage";
 import { Pager } from "@/components/Pager";
 import { adminApi, withQuery } from "@/lib/api";
 import { AdminApiError } from "@/lib/errors";
-import { formatCouponCode, formatKst, formatNumber } from "@/lib/format";
+import { formatCouponCode, formatKst, formatNumber, formatRecipient } from "@/lib/format";
 import { itemName } from "@/lib/items";
 import { can } from "@/lib/roles";
 import { getSession } from "@/lib/session";
@@ -99,16 +99,18 @@ export default async function CampaignDetailPage({
             <tr>
               <th scope="col">계정</th>
               <th scope="col">코드</th>
+              <th scope="col">받은 곳</th>
               <th scope="col">사용 일시 (KST)</th>
               <th scope="col">게임 서버 지급</th>
             </tr>
           </thead>
           <tbody>
-            {redemptions.items.length === 0 && <tr><td colSpan={4} className="empty">아직 사용 내역이 없습니다.</td></tr>}
+            {redemptions.items.length === 0 && <tr><td colSpan={5} className="empty">아직 사용 내역이 없습니다.</td></tr>}
             {redemptions.items.map((r) => (
               <tr key={r.redemptionId}>
                 <td><Link href={`/cs?accountId=${r.accountId}`} className="table__link tabular">{r.accountId}</Link></td>
                 <td className="mono">{formatCouponCode(r.code, r.campaignType)}</td>
+                <td>{formatRecipient(r.serverName, r.characterName)}</td>
                 <td className="nowrap">{formatKst(r.redeemedAt)}</td>
                 <td><GrantStatusChip status={r.grantStatus} /></td>
               </tr>

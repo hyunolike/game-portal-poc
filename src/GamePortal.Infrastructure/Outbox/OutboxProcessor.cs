@@ -78,7 +78,7 @@ public sealed class OutboxProcessor(
                 case OutboxMessageTypes.ItemGrant:
                     var payload = JsonSerializer.Deserialize<ItemGrantPayload>(message.Payload)
                                   ?? throw new InvalidOperationException("Empty payload");
-                    await gameServer.SendItemsToMailboxAsync(payload.RequestId, payload.AccountId, payload.Items, payload.Reason, cancellationToken);
+                    await gameServer.SendItemsToMailboxAsync(payload.RequestId, payload.AccountId, payload.Recipient, payload.Items, payload.Reason, cancellationToken);
                     break;
                 default:
                     throw new InvalidOperationException($"Unknown outbox message type: {message.Type}");

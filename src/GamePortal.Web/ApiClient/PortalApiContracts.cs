@@ -19,6 +19,15 @@ public sealed record NoticeDetail(long Id, NoticeCategory Category, string Title
 
 public sealed record RewardItem(int ItemId, int Quantity);
 
-public sealed record RedeemResult(long RedemptionId, string CampaignName, IReadOnlyList<RewardItem> Rewards, DateTimeOffset RedeemedAt);
+// ServerName, CharacterName 이 비어 있으면 계정 보관함으로 받은 것이다.
+public sealed record RedeemResult(
+    long RedemptionId,
+    string CampaignName,
+    IReadOnlyList<RewardItem> Rewards,
+    DateTimeOffset RedeemedAt,
+    string? ServerName = null,
+    string? CharacterName = null);
 
-public sealed record MyRedemption(long RedemptionId, string CampaignName, DateTimeOffset RedeemedAt);
+public sealed record MyRedemption(long RedemptionId, string CampaignName, DateTimeOffset RedeemedAt, string? ServerName = null, string? CharacterName = null);
+
+public sealed record GameCharacter(int ServerId, string ServerName, long CharacterId, string Name, int Level);

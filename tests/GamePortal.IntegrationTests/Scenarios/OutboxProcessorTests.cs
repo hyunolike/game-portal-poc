@@ -22,7 +22,7 @@ public class OutboxProcessorTests(PortalTestFixture fixture)
         var fail = await InsertMessageAsync(accountId: 2);
 
         var gameServer = Substitute.For<IGameServerClient>();
-        gameServer.SendItemsToMailboxAsync(Arg.Any<Guid>(), 2, Arg.Any<IReadOnlyList<GrantItem>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        gameServer.SendItemsToMailboxAsync(Arg.Any<Guid>(), 2, Arg.Any<MailRecipient?>(), Arg.Any<IReadOnlyList<GrantItem>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new HttpRequestException("503 Service Unavailable"));
 
         await DrainAsync(gameServer);
@@ -38,7 +38,36 @@ public class OutboxProcessorTests(PortalTestFixture fixture)
         Assert.Contains("503", failed.LastError);
 
         // 멱등키로 Outbox MessageId 를 전달
-        await gameServer.Received(1).SendItemsToMailboxAsync(ok, 1, Arg.Any<IReadOnlyList<GrantItem>>(), "test", Arg.Any<CancellationToken>());
+        await gameServer.Received(1).SendItemsToMailboxAsync(ok, 1, null, Arg.Any<IReadOnlyList<GrantItem>>(), "test", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task 받을_캐릭터를_고른_지급은_그_캐릭터로_전달한다()
+    {
+        var id = await InsertMessageAsync(accountId: 7, serverId: 2, characterId: 73);
+        var gameServer = Substitute.For<IGameServerClient>();
+
+        await DrainAsync(gameServer);
+
+        await gameServer.Received(1).SendItemsToMailboxAsync(id, 7, new MailRecipient(2, 73), Arg.Any<IReadOnlyList<GrantItem>>(), "test", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task 캐릭터_필드가_없던_예전_메시지는_계정_보관함으로_전달한다()
+    {
+        // 캐릭터 선택을 더하기 전에 쌓인 Outbox 본문 그대로
+        var id = Guid.NewGuid();
+        var legacyPayload = $$"""{"RequestId":"{{id}}","AccountId":8,"Items":[{"ItemId":1001,"Quantity":1}],"Reason":"test"}""";
+        await using (var db = fixture.CreateDbContext())
+        {
+            db.OutboxMessages.Add(OutboxMessage.Create(id, OutboxMessageTypes.ItemGrant, legacyPayload, DateTimeOffset.UtcNow));
+            await db.SaveChangesAsync();
+        }
+
+        var gameServer = Substitute.For<IGameServerClient>();
+        await DrainAsync(gameServer);
+
+        await gameServer.Received(1).SendItemsToMailboxAsync(id, 8, null, Arg.Any<IReadOnlyList<GrantItem>>(), "test", Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -52,7 +81,7 @@ public class OutboxProcessorTests(PortalTestFixture fixture)
 
         var delivered = new System.Collections.Concurrent.ConcurrentBag<Guid>();
         var gameServer = Substitute.For<IGameServerClient>();
-        gameServer.SendItemsToMailboxAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<IReadOnlyList<GrantItem>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        gameServer.SendItemsToMailboxAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<MailRecipient?>(), Arg.Any<IReadOnlyList<GrantItem>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ci =>
             {
                 delivered.Add(ci.ArgAt<Guid>(0));
@@ -86,10 +115,10 @@ public class OutboxProcessorTests(PortalTestFixture fixture)
         }
     }
 
-    private async Task<Guid> InsertMessageAsync(long accountId)
+    private async Task<Guid> InsertMessageAsync(long accountId, int? serverId = null, long? characterId = null)
     {
         var id = Guid.NewGuid();
-        var payload = new ItemGrantPayload(id, accountId, [new GrantItem(1001, 1)], "test");
+        var payload = new ItemGrantPayload(id, accountId, [new GrantItem(1001, 1)], "test", serverId, characterId);
         await using var db = fixture.CreateDbContext();
         db.OutboxMessages.Add(OutboxMessage.Create(id, OutboxMessageTypes.ItemGrant, JsonSerializer.Serialize(payload), DateTimeOffset.UtcNow));
         await db.SaveChangesAsync();

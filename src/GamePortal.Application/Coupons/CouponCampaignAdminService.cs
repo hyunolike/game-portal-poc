@@ -169,7 +169,9 @@ public sealed class CouponCampaignAdminService(
                     r.RedeemedAt,
                     r.GrantRequestId,
                     o == null ? null : (o.Status == OutboxStatus.Processed ? "Processed" : o.Status == OutboxStatus.Failed ? "Failed" : "Pending"),
-                    c.Type))
+                    c.Type,
+                    r.ServerName,
+                    r.CharacterName))
             .ToPagedResultAsync(page, cancellationToken);
     }
 }

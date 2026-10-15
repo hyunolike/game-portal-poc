@@ -43,6 +43,8 @@ internal sealed class CouponRedemptionConfiguration : IEntityTypeConfiguration<C
     {
         builder.ToTable("CouponRedemptions");
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.ServerName).HasMaxLength(30);
+        builder.Property(x => x.CharacterName).HasMaxLength(30);
 
         // 계정당 1회 사용의 최종 방어선
         builder.HasIndex(x => new { x.CampaignId, x.AccountId }).IsUnique();

@@ -25,4 +25,7 @@ public enum ErrorKind
     BusinessRule,
     NotFound,
     Conflict,
+
+    /// <summary>외부 시스템(게임 서버 등)에 연결할 수 없음. 유저가 잠시 뒤 다시 시도하면 되는 오류.</summary>
+    Unavailable,
 }
