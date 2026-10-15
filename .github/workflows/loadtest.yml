@@ -1,0 +1,85 @@
+name: Load test
+
+# 쿠폰 사용 부하 테스트. 부하 테스트 코드를 바꾼 PR 과 수동 실행에서만 돈다(실행에 10분가량 걸린다).
+on:
+  workflow_dispatch:
+    inputs:
+      players:
+        description: 선착순 시나리오의 유저 수
+        default: "5000"
+      stock:
+        description: 선착순 시나리오의 쿠폰 수량
+        default: "1000"
+      vus:
+        description: 동시 VU 수
+        default: "100"
+      duration:
+        description: 처리량 시나리오의 실행 시간
+        default: "60s"
+  pull_request:
+    paths:
+      - tools/loadtest/**
+      - .github/workflows/loadtest.yml
+
+concurrency:
+  group: loadtest-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  COMPOSE: docker compose -f docker-compose.yml -f tools/loadtest/docker-compose.loadtest.yml
+  PLAYERS: ${{ inputs.players || '5000' }}
+  STOCK: ${{ inputs.stock || '1000' }}
+  VUS: ${{ inputs.vus || '100' }}
+  DURATION: ${{ inputs.duration || '60s' }}
+
+jobs:
+  coupon-redeem:
+    name: Coupon redeem
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start stack (SQL Server, Redis, Admin.Api, Web.Api)
+        run: $COMPOSE up -d --build sqlserver redis admin-api web-api
+
+      - name: Wait for APIs
+        run: tools/loadtest/wait-ready.sh
+
+      - uses: grafana/setup-k6-action@v1
+
+      - name: Runner spec
+        run: |
+          {
+            echo "### 실행 환경"
+            echo ""
+            echo "GitHub 호스티드 러너 한 대에서 SQL Server, Redis, Web.Api, Admin.Api, k6 를 함께 실행했다."
+            echo ""
+            echo "- CPU: $(nproc) vCPU ($(lscpu | sed -n 's/^Model name:[[:space:]]*//p'))"
+            echo "- 메모리: $(free -g | awk '/Mem:/ {print $2}') GB"
+            echo ""
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: First-come scenario
+        run: k6 run -e SCENARIO=first_come tools/loadtest/coupon-redeem.js
+
+      - name: Throughput scenario
+        if: ${{ !cancelled() }}
+        run: k6 run -e SCENARIO=throughput tools/loadtest/coupon-redeem.js
+
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: cat tools/loadtest/results/*.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: loadtest-results
+          path: tools/loadtest/results/
+
+      - name: Container logs
+        if: ${{ failure() }}
+        run: $COMPOSE logs --tail 200 admin-api web-api

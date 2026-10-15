@@ -1,0 +1,11 @@
+# 부하 테스트용 덮어쓰기. docker compose -f docker-compose.yml -f tools/loadtest/docker-compose.loadtest.yml ...
+# k6 한 대가 한 IP 에서 수천 명을 흉내 내므로 IP 당 제한만 풀고, 요청마다 남는 로그는 줄인다.
+services:
+  web-api:
+    environment:
+      RateLimiting__PerIpBurst: "1000000"
+      RateLimiting__PerIpPerSecond: "1000000"
+      Serilog__MinimumLevel__Default: "Warning"
+  admin-api:
+    environment:
+      Serilog__MinimumLevel__Default: "Warning"
