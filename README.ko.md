@@ -258,7 +258,7 @@ flowchart LR
     PR["Pull Request"] --> Fmt["dotnet format"] --> Build["빌드<br/>경고 = 에러"] --> Mig["마이그레이션<br/>누락 검사"] --> Tests["단위 + 통합 테스트<br/>(Testcontainers)"] --> Docker["Docker 빌드"]
     PR --> FE["Admin.Web<br/>lint · typecheck · test · build"] --> Docker
     PR --> AI["AI 1차 리뷰<br/>(Claude)"] --> Human["사람 리뷰<br/>CODEOWNERS"]
-    Docker --> Merge["main 머지"]
+    Docker --> Merge["develop 머지"]
     Human --> Merge
     Merge --> Push["이미지 푸시<br/>GHCR"] --> Bundle["EF 마이그레이션 번들<br/>+ idempotent SQL"] --> Staging["staging<br/>자동 배포"]
     Tag["v* 태그"] --> Prod["production<br/>승인 후 배포"]
@@ -295,7 +295,7 @@ DB 스키마 변경은 앱 배포와 분리된 단계에서 실행합니다. EF 
 | 서버 아키텍처 및 데이터 흐름 | Web / Admin / Worker 분리, Transactional Outbox, 캐시 무효화 (위 구조도) |
 | Git을 이용한 프로젝트 관리 | GitHub Flow, Conventional Commits, PR 템플릿, CODEOWNERS, Dependabot |
 | (우대) 코드 리뷰 문화, 개발 프로세스 개선 | 리뷰 체크리스트와 코멘트 등급, CI가 강제하는 스타일 검사, 마이그레이션 누락 검사 |
-| (우대) 대용량 웹서비스 | 동시성 안전한 선착순, Redis 캐시, Rate limiting, 스트리밍, 확장 로드맵 |
+| (우대) 대용량 웹서비스 | 동시성 안전한 선착순과 k6 부하 테스트(5,000명 중 정확히 1,000명 성공), Redis 캐시, Rate limiting, 스트리밍, 확장 로드맵 |
 | (우대) CI/CD 배포 자동화 | GitHub Actions CI/CD, GHCR 이미지, 마이그레이션 번들, staging 자동 배포, production 승인 배포 |
 | (우대) AI 도구의 실무 통합 | PR AI 리뷰 워크플로, 에이전트용 `CLAUDE.md`, `CONTRIBUTING.md`의 AI 활용 가이드 |
 
@@ -399,6 +399,26 @@ dotnet test tests/GamePortal.IntegrationTests      # Docker 필요
 cd src/GamePortal.Admin.Web
 npm test
 npm run e2e                                        # docker compose up 으로 스택 실행 후
+```
+
+### 부하 테스트 (k6)
+
+[`tools/loadtest/coupon-redeem.js`](tools/loadtest/coupon-redeem.js)를 GitHub Actions 러너에서 돌린 결과입니다([워크플로](.github/workflows/loadtest.yml)). 4 vCPU, 메모리 15GB 러너 한 대에서 SQL Server, Redis, Web.Api, Admin.Api, k6를 함께 실행했으므로, 절대 수치보다 "규칙이 지켜지는가"와 "어디가 먼저 막히는가"를 보는 용도입니다.
+
+| 시나리오 | 조건 | 결과 |
+|---|---|---|
+| 선착순 | 1,000장에 서로 다른 계정 5,000명, 동시 VU 100 | 성공 **정확히 1,000건**, 소진 4,000건, 예상 밖 응답 0건, DB 사용 수 1,000. 약 420 req/s, p95 332ms |
+| 처리량 | 수량 제한 없는 공용 쿠폰, 동시 VU 100, 60초 | 33,338건 모두 성공, 약 550 req/s, 중앙값 173ms, p95 218ms, p99 396ms |
+
+- 선착순 시나리오의 p99(1.35초)는 기동 직후 연결 풀과 JIT가 데워지기 전 요청이 섞인 값입니다.
+- 모든 쿠폰 사용이 캠페인 한 행의 `RedeemedCount`를 갱신하므로, 트래픽이 더 몰리면 이 행의 락이 상한이 됩니다. 오픈 이벤트처럼 초당 수천 건을 받아야 한다면 Redis에서 수량을 먼저 걸러 내거나 카운터를 여러 행으로 나누는 방식을 검토합니다.
+- 토큰은 k6 안에서 서명해 토큰 발급 요청이 측정값에 섞이지 않게 했고, IP당 요청 제한만 풀었습니다.
+
+```bash
+docker compose -f docker-compose.yml -f tools/loadtest/docker-compose.loadtest.yml up -d --build sqlserver redis admin-api web-api
+tools/loadtest/wait-ready.sh
+k6 run -e SCENARIO=first_come tools/loadtest/coupon-redeem.js
+k6 run -e SCENARIO=throughput tools/loadtest/coupon-redeem.js
 ```
 
 ---

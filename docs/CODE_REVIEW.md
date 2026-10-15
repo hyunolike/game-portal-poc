@@ -49,5 +49,5 @@
 
 ## 머지 규칙
 
-- `main` 보호: PR 필수, CI 통과 필수, 승인 1명 이상 (CODEOWNERS 경로는 해당 오너 승인)
+- `develop` 보호: PR 필수, CI 통과 필수, 승인 1명 이상 (CODEOWNERS 경로는 해당 오너 승인)
 - Squash merge, 커밋 메시지는 [Conventional Commits](../CONTRIBUTING.md#커밋-메시지)
