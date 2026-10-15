@@ -278,6 +278,7 @@ Schema changes run as their own pipeline step, using the EF migration bundle and
 | Data access | EF Core for CRUD. Dapper only for the lock-hinted Outbox claim. No extra repository layer | `DbContext` is already a unit of work. Hiding `IQueryable` makes query tuning harder |
 | Audit | A `SaveChangesInterceptor` writes audit rows in the same transaction. HiLo IDs make IDs known before `INSERT` | Hand-written audit calls get forgotten |
 | Auth | Both front ends are BFFs: tokens live only in HttpOnly cookies and APIs are called server-side | XSS can't steal tokens, and API hosts aren't exposed to browsers |
+| Client IP | Trust `X-Forwarded-For` only from configured proxy ranges (`ForwardedHeaders:KnownNetworks`) | Trusting the header from anywhere lets a client dodge per-IP rate limits and forge the IP in audit logs with one header |
 | Errors | RFC 7807 ProblemDetails with a stable `code` and a `traceId` | Clients branch on codes, not message text. CS can quote the trace ID |
 | Contracts | A unit test fails if the server adds a coupon error code that the website has no message for | Keeps front-end copy in sync with server contracts |
 | Ops UX | Confirmation summaries, submit locking, KST everywhere, raw audit values translated | Operators make irreversible changes and need to read audits quickly |

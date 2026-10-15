@@ -50,6 +50,8 @@ services:
     environment:
       <<: *portal-env
       Jwt__SigningKey: "local-dev-only-signing-key-change-me-0123456789"
+      # 홈페이지(BFF)가 붙여 보내는 유저 IP 를 믿는다. 이 대역 밖에서 온 X-Forwarded-For 는 무시한다.
+      ForwardedHeaders__KnownNetworks__0: "172.28.0.0/16"
     ports: ["5100:8080"]
     depends_on:
       admin-api: { condition: service_started }
@@ -91,6 +93,13 @@ services:
       ApiKey: "local-game-server-key"
       FailureRate: "0.2"   # 20% 확률로 503 → Outbox 재시도 동작 확인용
     ports: ["5300:8080"]
+
+# Web.Api 가 믿을 프록시 대역을 고정하려고 서브넷을 명시한다.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
 
 volumes:
   mssql-data:

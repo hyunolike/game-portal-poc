@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\GamePortal.Infrastructure\GamePortal.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\GamePortal.Web\GamePortal.Web.csproj" />
+    <ProjectReference Include="..\..\src\GamePortal.AspNetCore\GamePortal.AspNetCore.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
