@@ -295,7 +295,7 @@ Schema changes run as their own pipeline step, using the EF migration bundle and
 | Server architecture and data flow | Web / Admin / Worker split, Transactional Outbox, cache invalidation (diagrams above) |
 | Git-based collaboration | GitHub Flow, Conventional Commits, PR template, CODEOWNERS, Dependabot |
 | Code review culture, process improvement | Review checklist and comment levels, CI-enforced style, migration check |
-| Large-scale web services | Concurrency-safe first-come-first-served, Redis caching, rate limiting, streaming, scaling roadmap |
+| Large-scale web services | Concurrency-safe first-come-first-served with a k6 load test (exactly 1,000 of 5,000 succeed), Redis caching, rate limiting, streaming, scaling roadmap |
 | CI/CD automation | GitHub Actions CI/CD, GHCR images, migration bundle, staging auto-deploy, gated production |
 | AI tools in day-to-day development | AI PR review workflow, `CLAUDE.md` agent conventions, AI usage guide in `CONTRIBUTING.md` |
 
@@ -399,6 +399,26 @@ dotnet test tests/GamePortal.IntegrationTests      # needs Docker
 cd src/GamePortal.Admin.Web
 npm test
 npm run e2e                                        # needs the stack running (docker compose up)
+```
+
+### Load test (k6)
+
+Results of [`tools/loadtest/coupon-redeem.js`](tools/loadtest/coupon-redeem.js) on a GitHub Actions runner ([workflow](.github/workflows/loadtest.yml)). SQL Server, Redis, Web.Api, Admin.Api, and k6 all share one 4 vCPU / 15 GB runner, so read it as "do the rules hold, and what saturates first" rather than as absolute capacity.
+
+| Scenario | Setup | Result |
+|---|---|---|
+| First come, first served | 1,000 coupons, 5,000 distinct accounts, 100 VUs | **Exactly 1,000** succeeded, 4,000 sold out, 0 unexpected responses, DB count 1,000. ~420 req/s, p95 332 ms |
+| Throughput | Unlimited shared coupon, 100 VUs, 60 s | All 33,338 succeeded, ~550 req/s, median 173 ms, p95 218 ms, p99 396 ms |
+
+- The first-come p99 (1.35 s) includes requests that hit the API before connection pools and JIT warmed up.
+- Every redemption updates one campaign row's `RedeemedCount`, so that row lock becomes the ceiling under heavier traffic. For opening-day events at thousands of requests per second, the next step is gating stock in Redis or splitting the counter across rows.
+- Tokens are signed inside k6 so token issuance does not pollute the numbers; only the per-IP rate limit is relaxed.
+
+```bash
+docker compose -f docker-compose.yml -f tools/loadtest/docker-compose.loadtest.yml up -d --build sqlserver redis admin-api web-api
+tools/loadtest/wait-ready.sh
+k6 run -e SCENARIO=first_come tools/loadtest/coupon-redeem.js
+k6 run -e SCENARIO=throughput tools/loadtest/coupon-redeem.js
 ```
 
 ---
