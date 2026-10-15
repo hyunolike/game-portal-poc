@@ -130,6 +130,18 @@ sequenceDiagram
 - **Dead letter**: 10회 실패 시 `Failed` → 운영툴 `/api/v1/outbox` 에서 확인 후 수동 재시도. 에러 로그 레벨로 알람 연동.
 - **CS 대응**: `/api/v1/coupon-redemptions?accountId=` 가 사용 이력과 지급 상태(Pending/Processed/Failed)를 함께 보여준다.
 
+### 3.3 보상을 받을 곳: 계정 보관함 또는 캐릭터
+
+국내 라이브 게임은 쿠폰 보상을 서버와 캐릭터를 골라 받는 경우가 많다. 유저는 계정 보관함(모든 캐릭터 공용)이나 자기 캐릭터 하나를 고른다.
+
+- **캐릭터 ID 를 믿지 않는다.** 요청에 온 `characterId` 로 게임 서버에서 이 계정의 캐릭터 목록을 다시 읽어 확인한다. 없으면 `COUPON_CHARACTER_NOT_FOUND`.
+- **읽기만 Web.Api 가 직접 한다.** 지급(쓰기)은 그대로 Outbox 와 Worker 가 맡는다. 캐릭터 조회는 유저가 화면 앞에서 기다리는 요청이라 1초 시간 제한, 1회 재시도, 서킷 브레이커를 두고, 실패하면 `GAME_SERVER_UNAVAILABLE`(503)로 끝낸다.
+- **조회는 쿠폰 검증을 통과한 뒤, 트랜잭션을 열기 전에 한다.** 잘못된 코드 입력이 게임 서버 부하로 번지지 않고, 게임 서버가 느려도 DB 락을 잡고 기다리지 않는다.
+- **캐릭터를 고르지 않으면 게임 서버를 부르지 않는다.** 게임 서버 점검 중에도 계정 보관함으로는 받을 수 있고, 홈페이지는 캐릭터 목록을 못 불러오면 그 사실을 알리고 계정 보관함만 보여 준다.
+- **사용 시점의 서버와 캐릭터 이름을 남긴다.** 캐릭터 이름이 바뀌어도 CS 가 당시 기록으로 답할 수 있다.
+- **Outbox 본문은 필드만 더했다.** `ServerId`, `CharacterId` 가 없는 예전 메시지는 계정 보관함으로 보낸다.
+- **대상 조건(최소 캐릭터 레벨)도 같은 자리에서 확인한다.** 조건이 있는 쿠폰은 캐릭터를 골라야 하고(`COUPON_CHARACTER_REQUIRED`), 레벨이 모자라면 `COUPON_LEVEL_TOO_LOW`. 트랜잭션 전에 걸러지므로 못 받은 요청이 수량을 건드리지 않는다. 레벨은 내려가지 않아 확인과 지급 사이의 틈에 조건이 깨질 일이 없다.
+
 ## 4. 공지사항 캐시 전략
 
 - 조회 트래픽 ≫ 쓰기. 점검/업데이트 공지 시점에 트래픽이 수십 배로 몰린다.
@@ -202,6 +214,7 @@ erDiagram
         bigint CampaignId "UK(CampaignId, AccountId)"
         bigint AccountId
         uniqueidentifier GrantRequestId UK
+        bigint CharacterId "NULL 이면 계정 보관함"
     }
     OutboxMessages {
         bigint Id PK
@@ -235,7 +248,7 @@ flowchart LR
     PR[Pull Request] --> CI{CI}
     CI --> F[format 검사] --> B[빌드<br/>경고=에러] --> M[마이그레이션 누락 검사] --> UT[단위 테스트] --> IT[통합 테스트<br/>Testcontainers SQL Server] --> D[Docker 빌드]
     PR --> AI[AI 1차 리뷰<br/>Claude] --> H[사람 리뷰<br/>CODEOWNERS]
-    H --> MG[main 머지]
+    H --> MG[develop 머지]
     MG --> IMG[이미지 빌드/푸시 GHCR] --> MB[EF 마이그레이션 번들] --> ST[staging 배포<br/>자동] --> SM[스모크 테스트]
     TAG[v* 태그] --> PRD[production 배포<br/>승인 필요]
 ```

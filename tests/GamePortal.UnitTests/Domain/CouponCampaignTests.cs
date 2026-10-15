@@ -1,3 +1,4 @@
+using GamePortal.Domain.Characters;
 using GamePortal.Domain.Common;
 using GamePortal.Domain.Coupons;
 
@@ -10,6 +11,49 @@ public class CouponCampaignTests
 
     private static CouponCampaign NewCampaign(int? max = null) => CouponCampaign.Create(
         "10월 출석 이벤트", CouponType.Shared, Start, End, max, [new RewardItem(1001, 10)], operatorId: 1, now: Start.AddDays(-1));
+
+    private static CouponCampaign LevelCampaign(int minLevel) => CouponCampaign.Create(
+        "성장 지원", CouponType.Shared, Start, End, null, [new RewardItem(1001, 10)], operatorId: 1, now: Start.AddDays(-1), minCharacterLevel: minLevel);
+
+    private static GameCharacter Character(int level) => new(1, "아스테라", 11, "별의순례자", level);
+
+    [Theory]
+    [InlineData(29, "COUPON_LEVEL_TOO_LOW")]
+    [InlineData(30, null)] // 조건 레벨과 같으면 받을 수 있다
+    [InlineData(31, null)]
+    public void 최소_레벨_경계값(int level, string? expectedCode)
+    {
+        var campaign = LevelCampaign(minLevel: 30);
+
+        var ex = Record.Exception(() => campaign.EnsureEligible(Character(level)));
+
+        Assert.Equal(expectedCode, (ex as DomainException)?.Code);
+    }
+
+    [Fact]
+    public void 레벨_조건이_있는_쿠폰은_계정_보관함으로_받을_수_없다()
+    {
+        var ex = Assert.Throws<DomainException>(() => LevelCampaign(minLevel: 30).EnsureEligible(recipient: null));
+
+        Assert.Equal("COUPON_CHARACTER_REQUIRED", ex.Code);
+    }
+
+    [Fact]
+    public void 레벨_조건이_없으면_계정_보관함과_어떤_캐릭터로도_받을_수_있다()
+    {
+        var campaign = NewCampaign();
+
+        Assert.Null(Record.Exception(() => campaign.EnsureEligible(null)));
+        Assert.Null(Record.Exception(() => campaign.EnsureEligible(Character(1))));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(CouponCampaign.MaxCharacterLevel + 1)]
+    public void 최소_레벨은_1부터_상한까지만_정할_수_있다(int minLevel)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => LevelCampaign(minLevel));
+    }
 
     [Fact]
     public void 기간_내_활성_캠페인은_사용_가능하다()

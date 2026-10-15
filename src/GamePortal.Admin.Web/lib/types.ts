@@ -49,6 +49,8 @@ export interface CampaignDetail extends CampaignSummary {
   codeCount: number;
   createdBy: number;
   createdAt: string;
+  /** 대상 조건. null 이면 제한 없음 */
+  minCharacterLevel: number | null;
 }
 
 export interface Redemption {
@@ -61,6 +63,9 @@ export interface Redemption {
   grantRequestId: string;
   grantStatus: OutboxStatus | null;
   campaignType: CouponType;
+  /** 보상을 받은 캐릭터. 둘 다 null 이면 계정 보관함으로 받았다. */
+  serverName: string | null;
+  characterName: string | null;
 }
 
 export interface OutboxStats {

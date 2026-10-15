@@ -1,9 +1,13 @@
+using GamePortal.Application;
 using GamePortal.AspNetCore;
+using GamePortal.Infrastructure;
 using GamePortal.Web.Api.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddPortalApiDefaults("GamePortal Web API");
+builder.Services.AddPlayerUseCases();
+builder.Services.AddGameCharacterDirectory(builder.Configuration);
 builder.Services.AddPortalRateLimiting(builder.Configuration);
 
 var app = builder.Build();

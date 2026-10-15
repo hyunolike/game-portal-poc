@@ -1,6 +1,7 @@
 extern alias AdminApi;
 extern alias WebApi;
 extern alias WebFront;
+using GamePortal.Application.Abstractions;
 using GamePortal.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -33,6 +34,9 @@ public sealed class PortalTestFixture : IAsyncLifetime
     private readonly IDistributedCache _sharedCache = new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions()));
 
     public string ConnectionString { get; private set; } = string.Empty;
+
+    /// <summary>Web.Api 가 보는 게임 서버 캐릭터 목록.</summary>
+    public FakeGameCharacterDirectory GameCharacters { get; } = new();
 
     public WebApplicationFactory<WebApi::Program> Web { get; private set; } = null!;
 
@@ -98,10 +102,14 @@ public sealed class PortalTestFixture : IAsyncLifetime
         builder.UseSetting("RateLimiting:PerIpBurst", "100000");
         builder.UseSetting("RateLimiting:PerIpPerSecond", "100000");
         builder.UseSetting("Database:MigrateOnStartup", "false");
+        builder.UseSetting("GameServer:BaseUrl", "http://game-server.test");
+        builder.UseSetting("GameServer:ApiKey", "integration-test-game-server-key");
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IDistributedCache>();
             services.AddSingleton(_sharedCache);
+            services.RemoveAll<IGameCharacterDirectory>();
+            services.AddSingleton<IGameCharacterDirectory>(GameCharacters);
         });
     }
 }

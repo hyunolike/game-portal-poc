@@ -11,6 +11,7 @@ export async function createCampaign(_prev: ActionState, formData: FormData): Pr
   const itemIds = formData.getAll("rewardItemId").map(Number);
   const quantities = formData.getAll("rewardQuantity").map(Number);
   const maxRedemptions = String(formData.get("maxRedemptions") ?? "").trim();
+  const minCharacterLevel = String(formData.get("minCharacterLevel") ?? "").trim();
 
   let id = 0;
   const result = await runAction(async () => {
@@ -25,6 +26,7 @@ export async function createCampaign(_prev: ActionState, formData: FormData): Pr
         rewards: itemIds.map((itemId, i) => ({ itemId, quantity: quantities[i] ?? 0 })),
         sharedCode: type === "Shared" ? String(formData.get("sharedCode") ?? "") : null,
         uniqueCodeCount: type === "Unique" ? Number(formData.get("uniqueCodeCount")) : null,
+        minCharacterLevel: minCharacterLevel ? Number(minCharacterLevel) : null,
       },
     });
     id = created.id;

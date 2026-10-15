@@ -10,13 +10,14 @@ internal sealed class GameServerClient(HttpClient http) : IGameServerClient
     public async Task SendItemsToMailboxAsync(
         Guid requestId,
         long accountId,
+        MailRecipient? recipient,
         IReadOnlyList<GrantItem> items,
         string reason,
         CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "internal/mail/items")
         {
-            Content = JsonContent.Create(new { accountId, items, reason }),
+            Content = JsonContent.Create(new { accountId, serverId = recipient?.ServerId, characterId = recipient?.CharacterId, items, reason }),
         };
         request.Headers.Add("Idempotency-Key", requestId.ToString());
 

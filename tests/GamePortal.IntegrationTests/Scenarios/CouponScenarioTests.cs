@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using GamePortal.Application.Characters;
 using GamePortal.Application.Common;
 using GamePortal.Application.Coupons;
+using GamePortal.Domain.Characters;
 using GamePortal.Domain.Coupons;
 using GamePortal.Domain.Outbox;
 using GamePortal.IntegrationTests.Infrastructure;
@@ -192,6 +194,154 @@ public class CouponScenarioTests(PortalTestFixture fixture)
         var response = await fixture.Web.CreateClient().PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest("ABCD1234"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task 내_캐릭터_목록을_서버_순서와_높은_레벨_순으로_돌려준다()
+    {
+        var accountId = NextAccountId();
+        fixture.GameCharacters.Set(
+            accountId,
+            new GameCharacter(2, "벨루나", 31, "잿빛궁수", 20),
+            new GameCharacter(1, "아스테라", 12, "새벽검객", 8),
+            new GameCharacter(1, "아스테라", 11, "별의순례자", 62));
+        var player = await fixture.Web.CreatePlayerClientAsync(accountId);
+
+        var characters = await (await player.GetAsync("/api/v1/characters")).ReadAsAsync<List<CharacterDto>>();
+
+        Assert.Equal([11L, 12L, 31L], characters.Select(c => c.CharacterId));
+    }
+
+    [Fact]
+    public async Task 받을_캐릭터를_고르면_사용_이력과_지급_요청에_그_캐릭터가_남는다()
+    {
+        var code = NewCode();
+        await CreateSharedCampaignAsync(code, maxRedemptions: null);
+        var accountId = NextAccountId();
+        fixture.GameCharacters.Set(accountId, new GameCharacter(2, "벨루나", 4242, "잿빛궁수", 33));
+        var player = await fixture.Web.CreatePlayerClientAsync(accountId);
+
+        var response = await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code, CharacterId: 4242));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.ReadAsAsync<RedeemCouponResult>();
+        Assert.Equal("벨루나", result.ServerName);
+        Assert.Equal("잿빛궁수", result.CharacterName);
+
+        await using var db = fixture.CreateDbContext();
+        var redemption = await db.CouponRedemptions.AsNoTracking().SingleAsync(r => r.Id == result.RedemptionId);
+        Assert.Equal((2, 4242L, "잿빛궁수"), (redemption.ServerId!.Value, redemption.CharacterId!.Value, redemption.CharacterName));
+        var outbox = await db.OutboxMessages.AsNoTracking().SingleAsync(m => m.MessageId == redemption.GrantRequestId);
+        Assert.Contains("\"ServerId\":2", outbox.Payload);
+        Assert.Contains("\"CharacterId\":4242", outbox.Payload);
+
+        // CS 조회에도 받은 캐릭터가 보인다
+        var admin = await fixture.Admin.CreateOperatorClientAsync("CS");
+        var rows = await (await admin.GetAsync($"/api/v1/coupon-redemptions?accountId={accountId}")).ReadAsAsync<PagedResult<RedemptionAdminDto>>();
+        Assert.Equal("잿빛궁수", Assert.Single(rows.Items).CharacterName);
+    }
+
+    [Fact]
+    public async Task 캐릭터를_고르지_않으면_계정_보관함으로_받고_게임_서버를_조회하지_않는다()
+    {
+        var code = NewCode();
+        await CreateSharedCampaignAsync(code, maxRedemptions: null);
+        var accountId = NextAccountId();
+        fixture.GameCharacters.MakeUnavailable(accountId); // 조회했다면 503 으로 실패했을 것
+        var player = await fixture.Web.CreatePlayerClientAsync(accountId);
+
+        var response = await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.ReadAsAsync<RedeemCouponResult>();
+        Assert.Null(result.CharacterName);
+    }
+
+    [Fact]
+    public async Task 내_계정에_없는_캐릭터로는_받을_수_없고_수량도_줄지_않는다()
+    {
+        var code = NewCode();
+        var campaignId = await CreateSharedCampaignAsync(code, maxRedemptions: 10);
+        var accountId = NextAccountId();
+        fixture.GameCharacters.Set(accountId, new GameCharacter(1, "아스테라", 100, "별의순례자", 40));
+        var player = await fixture.Web.CreatePlayerClientAsync(accountId);
+
+        // 다른 계정의 캐릭터 번호를 넣은 요청
+        var response = await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code, CharacterId: 999));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("COUPON_CHARACTER_NOT_FOUND", await response.ReadErrorCodeAsync());
+        await using var db = fixture.CreateDbContext();
+        Assert.Equal(0, (await db.CouponCampaigns.AsNoTracking().SingleAsync(c => c.Id == campaignId)).RedeemedCount);
+    }
+
+    [Fact]
+    public async Task 게임_서버에_연결할_수_없으면_503이고_쿠폰은_쓰이지_않는다()
+    {
+        var code = NewCode();
+        var campaignId = await CreateSharedCampaignAsync(code, maxRedemptions: 10);
+        var accountId = NextAccountId();
+        fixture.GameCharacters.MakeUnavailable(accountId);
+        var player = await fixture.Web.CreatePlayerClientAsync(accountId);
+
+        var response = await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code, CharacterId: 1));
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("GAME_SERVER_UNAVAILABLE", await response.ReadErrorCodeAsync());
+        await using var db = fixture.CreateDbContext();
+        Assert.Equal(0, (await db.CouponCampaigns.AsNoTracking().SingleAsync(c => c.Id == campaignId)).RedeemedCount);
+        Assert.False(await db.CouponRedemptions.AnyAsync(r => r.AccountId == accountId));
+    }
+
+    [Fact]
+    public async Task 레벨_조건_쿠폰은_조건을_넘는_캐릭터만_받고_못_받은_요청은_수량을_줄이지_않는다()
+    {
+        var code = NewCode();
+        var admin = await fixture.Admin.CreateOperatorClientAsync("Admin");
+        var create = await admin.PostAsJsonAsync(
+            "/api/v1/coupon-campaigns",
+            SharedCampaign(code, max: 10) with { MinCharacterLevel = 30 },
+            TestJson.Options);
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var campaignId = (await create.ReadAsAsync<IdResponse>()).Id;
+
+        var accountId = NextAccountId();
+        fixture.GameCharacters.Set(
+            accountId,
+            new GameCharacter(1, "아스테라", 501, "새벽검객", 8),
+            new GameCharacter(1, "아스테라", 502, "별의순례자", 30));
+        var player = await fixture.Web.CreatePlayerClientAsync(accountId);
+
+        var noCharacter = await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code));
+        var lowLevel = await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code, CharacterId: 501));
+
+        Assert.Equal("COUPON_CHARACTER_REQUIRED", await noCharacter.ReadErrorCodeAsync());
+        Assert.Equal("COUPON_LEVEL_TOO_LOW", await lowLevel.ReadErrorCodeAsync());
+        await using (var db = fixture.CreateDbContext())
+        {
+            Assert.Equal(0, (await db.CouponCampaigns.AsNoTracking().SingleAsync(c => c.Id == campaignId)).RedeemedCount);
+        }
+
+        var ok = await player.PostAsJsonAsync("/api/v1/coupons/redeem", new RedeemCouponRequest(code, CharacterId: 502));
+
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        var detail = await (await admin.GetAsync($"/api/v1/coupon-campaigns/{campaignId}")).ReadAsAsync<CampaignDetailDto>();
+        Assert.Equal(30, detail.MinCharacterLevel);
+        Assert.Equal(1, detail.RedeemedCount);
+    }
+
+    [Fact]
+    public async Task 최소_레벨이_범위를_벗어나면_발행할_수_없다()
+    {
+        var admin = await fixture.Admin.CreateOperatorClientAsync("Admin");
+
+        var response = await admin.PostAsJsonAsync(
+            "/api/v1/coupon-campaigns",
+            SharedCampaign(NewCode(), null) with { MinCharacterLevel = 0 },
+            TestJson.Options);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("VALIDATION_FAILED", await response.ReadErrorCodeAsync());
     }
 
     private async Task<long> CreateSharedCampaignAsync(string code, int? maxRedemptions)

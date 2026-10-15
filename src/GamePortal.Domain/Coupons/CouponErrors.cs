@@ -13,6 +13,9 @@ public static class CouponErrors
     public static readonly DomainError AlreadyUsed = new("COUPON_ALREADY_USED", "이미 사용된 쿠폰 코드입니다.", ErrorKind.Conflict);
     public static readonly DomainError AlreadyRedeemedByAccount = new("COUPON_ALREADY_REDEEMED", "이미 보상을 받은 쿠폰입니다.", ErrorKind.Conflict);
     public static readonly DomainError SoldOut = new("COUPON_SOLD_OUT", "선착순 수량이 모두 소진되었습니다.", ErrorKind.Conflict);
+    public static readonly DomainError CharacterNotFound = new("COUPON_CHARACTER_NOT_FOUND", "보상을 받을 캐릭터를 찾을 수 없습니다.");
+    public static readonly DomainError CharacterRequired = new("COUPON_CHARACTER_REQUIRED", "캐릭터를 골라야 받을 수 있는 쿠폰입니다.");
+    public static readonly DomainError LevelTooLow = new("COUPON_LEVEL_TOO_LOW", "캐릭터 레벨이 쿠폰 대상 조건보다 낮습니다.");
     public static readonly DomainError InvalidPeriod = new("COUPON_INVALID_PERIOD", "종료 시각은 시작 시각보다 늦어야 합니다.");
     public static readonly DomainError RewardRequired = new("COUPON_REWARD_REQUIRED", "보상 아이템을 1개 이상 지정해야 합니다.");
 }

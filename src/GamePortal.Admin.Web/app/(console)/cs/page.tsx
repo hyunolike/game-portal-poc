@@ -4,7 +4,7 @@ import { GrantStatusChip } from "@/components/Chip";
 import { PageHeader } from "@/components/PageHeader";
 import { Pager } from "@/components/Pager";
 import { adminApi, withQuery } from "@/lib/api";
-import { formatCouponCode, formatKst } from "@/lib/format";
+import { formatCouponCode, formatKst, formatRecipient } from "@/lib/format";
 import type { PagedResult, Redemption } from "@/lib/types";
 
 export const metadata: Metadata = { title: "CS 조회" };
@@ -41,17 +41,19 @@ export default async function CsPage({ searchParams }: { searchParams: Promise<{
                   <th scope="col">사용 일시 (KST)</th>
                   <th scope="col">캠페인</th>
                   <th scope="col">코드</th>
+                  <th scope="col">받은 곳</th>
                   <th scope="col">게임 서버 지급</th>
                   <th scope="col">지급 요청 ID</th>
                 </tr>
               </thead>
               <tbody>
-                {result.items.length === 0 && <tr><td colSpan={5} className="empty">쿠폰 사용 이력이 없습니다. 유저가 입력한 코드가 실패했을 가능성이 높습니다.</td></tr>}
+                {result.items.length === 0 && <tr><td colSpan={6} className="empty">쿠폰 사용 이력이 없습니다. 유저가 입력한 코드가 실패했을 가능성이 높습니다.</td></tr>}
                 {result.items.map((r) => (
                   <tr key={r.redemptionId}>
                     <td className="nowrap">{formatKst(r.redeemedAt)}</td>
                     <td><Link href={`/coupons/${r.campaignId}`} className="table__link">{r.campaignName}</Link></td>
                     <td className="mono">{formatCouponCode(r.code, r.campaignType)}</td>
+                    <td>{formatRecipient(r.serverName, r.characterName)}</td>
                     <td><GrantStatusChip status={r.grantStatus} /></td>
                     <td className="mono small muted">{r.grantRequestId}</td>
                   </tr>
@@ -64,6 +66,7 @@ export default async function CsPage({ searchParams }: { searchParams: Promise<{
             <h3>안내 가이드</h3>
             <ul>
               <li><strong>지급 완료</strong>: 게임 내 우편함에 도착했습니다. 우편함 보관 기간(30일) 경과 여부를 확인해 주세요.</li>
+              <li><strong>받은 곳</strong>: 유저가 고른 캐릭터의 우편함입니다. &quot;계정 보관함&quot;이면 모든 캐릭터가 함께 쓰는 보관함을 확인하도록 안내해 주세요.</li>
               <li><strong>지급 대기</strong>: 게임 서버 전달 중입니다. 보통 수 초~수 분 내 처리됩니다.</li>
               <li><strong>지급 실패</strong>: 자동 재시도가 모두 실패했습니다. 운영자에게 지급 모니터링 화면에서 재처리를 요청해 주세요.</li>
             </ul>

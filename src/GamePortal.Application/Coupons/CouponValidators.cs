@@ -25,6 +25,10 @@ public sealed class CreateCampaignRequestValidator : AbstractValidator<CreateCam
         RuleFor(x => x.Type).IsInEnum();
         RuleFor(x => x.EndsAt).GreaterThan(x => x.StartsAt);
         RuleFor(x => x.MaxRedemptions).GreaterThan(0).When(x => x.MaxRedemptions is not null);
+        RuleFor(x => x.MinCharacterLevel)
+            .InclusiveBetween(1, CouponCampaign.MaxCharacterLevel)
+            .When(x => x.MinCharacterLevel is not null)
+            .WithMessage($"최소 캐릭터 레벨은 1~{CouponCampaign.MaxCharacterLevel} 사이여야 합니다.");
         RuleFor(x => x.Rewards).NotEmpty();
         RuleForEach(x => x.Rewards).ChildRules(r =>
         {

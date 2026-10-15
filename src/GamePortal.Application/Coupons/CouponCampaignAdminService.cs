@@ -33,7 +33,8 @@ public sealed class CouponCampaignAdminService(
             request.MaxRedemptions,
             request.Rewards.Select(r => new RewardItem(r.ItemId, r.Quantity)),
             currentUser.Id,
-            now);
+            now,
+            request.MinCharacterLevel);
 
         // 코드는 트랜잭션 밖에서 미리 생성 (CPU 작업으로 트랜잭션/락 시간을 늘리지 않기 위해)
         var uniqueCodes = request.Type == CouponType.Unique
@@ -102,7 +103,8 @@ public sealed class CouponCampaignAdminService(
             campaign.Rewards.Select(r => new RewardItemDto(r.ItemId, r.Quantity)).ToList(),
             codeCount,
             campaign.CreatedBy,
-            campaign.CreatedAt);
+            campaign.CreatedAt,
+            campaign.MinCharacterLevel);
     }
 
     public async Task SetEnabledAsync(long id, bool enabled, CancellationToken cancellationToken)
@@ -169,7 +171,9 @@ public sealed class CouponCampaignAdminService(
                     r.RedeemedAt,
                     r.GrantRequestId,
                     o == null ? null : (o.Status == OutboxStatus.Processed ? "Processed" : o.Status == OutboxStatus.Failed ? "Failed" : "Pending"),
-                    c.Type))
+                    c.Type,
+                    r.ServerName,
+                    r.CharacterName))
             .ToPagedResultAsync(page, cancellationToken);
     }
 }

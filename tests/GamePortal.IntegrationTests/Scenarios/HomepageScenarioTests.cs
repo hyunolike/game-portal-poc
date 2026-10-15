@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using GamePortal.Application.Coupons;
 using GamePortal.Application.Notices;
+using GamePortal.Domain.Characters;
 using GamePortal.Domain.Coupons;
 using GamePortal.Domain.Notices;
 using GamePortal.IntegrationTests.Infrastructure;
@@ -94,6 +96,50 @@ public partial class HomepageScenarioTests(PortalTestFixture fixture)
         var second = await PostFormAsync(client, "/coupon", new() { ["Code"] = code });
 
         Assert.Contains("이미 보상을 받은 쿠폰입니다", second);
+    }
+
+    [Fact]
+    public async Task 쿠폰_화면에서_캐릭터를_골라_받으면_받는_곳이_표시된다()
+    {
+        var code = "WEB" + CouponCodeGenerator.Generate(9);
+        await CreateSharedCampaignAsync(code, "캐릭터 지급 테스트");
+        var accountId = Interlocked.Increment(ref _accountSeed);
+        fixture.GameCharacters.Set(accountId, new GameCharacter(1, "아스테라", (accountId * 10) + 1, "별의순례자", 62));
+        var client = fixture.Front.CreateClient();
+        await LoginAsync(client, accountId);
+
+        var page = await client.GetStringAsync("/coupon");
+        Assert.Contains("계정 보관함", page);
+        Assert.Contains("별의순례자", page);
+        Assert.Contains("Lv.62", page);
+
+        var html = await PostFormAsync(client, "/coupon", new()
+        {
+            ["Code"] = code,
+            ["CharacterId"] = ((accountId * 10) + 1).ToString(CultureInfo.InvariantCulture),
+        });
+
+        Assert.Contains("쿠폰이 등록되었습니다", html);
+        Assert.Contains("받는 곳: <strong>아스테라 별의순례자</strong>", html);
+    }
+
+    [Fact]
+    public async Task 캐릭터_목록을_불러오지_못해도_계정_보관함으로_등록할_수_있다()
+    {
+        var code = "WEB" + CouponCodeGenerator.Generate(9);
+        await CreateSharedCampaignAsync(code, "게임 서버 점검 중 등록");
+        var accountId = Interlocked.Increment(ref _accountSeed);
+        fixture.GameCharacters.MakeUnavailable(accountId);
+        var client = fixture.Front.CreateClient();
+        await LoginAsync(client, accountId);
+
+        var page = await client.GetStringAsync("/coupon");
+        Assert.Contains("캐릭터 목록을 불러올 수 없습니다", page);
+
+        var html = await PostFormAsync(client, "/coupon", new() { ["Code"] = code });
+
+        Assert.Contains("쿠폰이 등록되었습니다", html);
+        Assert.Contains("받는 곳: <strong>계정 보관함</strong>", html);
     }
 
     [Fact]
