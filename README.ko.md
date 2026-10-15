@@ -258,7 +258,7 @@ flowchart LR
     PR["Pull Request"] --> Fmt["dotnet format"] --> Build["빌드<br/>경고 = 에러"] --> Mig["마이그레이션<br/>누락 검사"] --> Tests["단위 + 통합 테스트<br/>(Testcontainers)"] --> Docker["Docker 빌드"]
     PR --> FE["Admin.Web<br/>lint · typecheck · test · build"] --> Docker
     PR --> AI["AI 1차 리뷰<br/>(Claude)"] --> Human["사람 리뷰<br/>CODEOWNERS"]
-    Docker --> Merge["main 머지"]
+    Docker --> Merge["develop 머지"]
     Human --> Merge
     Merge --> Push["이미지 푸시<br/>GHCR"] --> Bundle["EF 마이그레이션 번들<br/>+ idempotent SQL"] --> Staging["staging<br/>자동 배포"]
     Tag["v* 태그"] --> Prod["production<br/>승인 후 배포"]
@@ -278,6 +278,7 @@ DB 스키마 변경은 앱 배포와 분리된 단계에서 실행합니다. EF 
 | 데이터 접근 | CRUD는 EF Core, 락 힌트가 필요한 Outbox 선점만 Dapper. Repository 계층을 한 겹 더 두지 않음 | `DbContext`가 이미 Unit of Work이고, `IQueryable`을 감추면 쿼리 튜닝이 어려워짐 |
 | 감사 로그 | `SaveChangesInterceptor`가 같은 트랜잭션으로 기록. HiLo로 `INSERT` 전에 Id 확정 | 서비스 코드에서 직접 남기면 누락이 생김 |
 | 인증 | 두 화면 모두 BFF. 토큰은 HttpOnly 쿠키에만 두고 API는 서버에서 호출 | XSS로 토큰을 훔칠 수 없고, API 주소도 브라우저에 노출되지 않음 |
+| 유저 IP | 설정한 프록시 대역(`ForwardedHeaders:KnownNetworks`)이 보낸 `X-Forwarded-For`만 믿음 | 아무 출발지의 헤더나 믿으면 헤더 한 줄로 IP 기반 요청 제한을 피하고 감사 로그의 IP도 꾸밀 수 있음 |
 | 에러 | RFC 7807 ProblemDetails + 고정된 `code` + `traceId` | 클라이언트는 문구가 아닌 코드로 분기하고, CS는 추적 ID로 로그를 찾음 |
 | 계약 | 서버에 쿠폰 에러 코드가 추가됐는데 홈페이지 문구가 없으면 단위 테스트가 실패 | 화면 문구와 서버 계약이 어긋나지 않게 유지 |
 | 운영 UX | 발행 전 요약 확인, 제출 중 버튼 잠금, 모든 시각 KST, 감사 로그 원시값 변환 | 운영자는 되돌리기 어려운 작업을 하고, 감사 로그를 빠르게 읽어야 함 |

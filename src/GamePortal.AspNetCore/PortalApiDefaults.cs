@@ -8,7 +8,6 @@ using GamePortal.Infrastructure;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -90,13 +89,9 @@ public static class PortalApiDefaults
             });
         });
 
-        // L4/L7 로드밸런서 뒤에서 실제 클라이언트 IP 를 얻기 위함 (감사 로그, Rate limit 파티션)
-        services.Configure<ForwardedHeadersOptions>(o =>
-        {
-            o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-            o.KnownNetworks.Clear();
-            o.KnownProxies.Clear();
-        });
+        // L4/L7 로드밸런서 뒤에서 실제 클라이언트 IP 를 얻기 위함 (감사 로그, Rate limit 파티션).
+        // 설정에 적은 프록시가 보낸 헤더만 믿는다.
+        services.Configure<ForwardedHeadersOptions>(o => TrustedForwardedHeaders.Configure(o, builder.Configuration));
 
         return builder;
     }
