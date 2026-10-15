@@ -59,6 +59,7 @@ internal sealed class GlobalExceptionHandler(IProblemDetailsService problemDetai
     {
         ErrorKind.NotFound => StatusCodes.Status404NotFound,
         ErrorKind.Conflict => StatusCodes.Status409Conflict,
+        ErrorKind.Unavailable => StatusCodes.Status503ServiceUnavailable,
         _ => StatusCodes.Status400BadRequest,
     };
 }

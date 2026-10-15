@@ -99,6 +99,7 @@ flowchart LR
     AdminApi -- "캐시 버전 교체" --> Redis
     Worker -- "UPDLOCK + READPAST 로 선점" --> DB
     Worker -- "Idempotency-Key" --> Game
+    WebApi -. "캐릭터 조회 (읽기 전용)" .-> Game
 ```
 
 | 프로세스 | 역할 | 확장 방식 |
@@ -111,7 +112,7 @@ flowchart LR
 
 프로세스를 나눈 이유:
 - **보안 경계:** 운영 API가 유저 API와 같은 프로세스에 있지 않으므로, 라우팅 실수 하나로 외부에 노출될 일이 없습니다.
-- **장애 격리:** 게임 서버는 Worker만 호출하므로, 게임 서버가 느려져도 웹 응답은 영향을 받지 않습니다.
+- **장애 격리:** 지급(쓰기)은 Worker만 하므로, 게임 서버가 느려져도 쿠폰 사용 응답은 기다리지 않습니다. 보상을 받을 캐릭터를 고를 때만 Web.Api가 캐릭터를 읽는데, 1초 시간 제한과 서킷 브레이커를 두고, 실패해도 계정 보관함으로는 받을 수 있게 했습니다.
 - **독립 배포:** 운영툴 기능을 추가해도 유저 트래픽을 받는 서버를 다시 배포할 필요가 없습니다.
 
 ### 쿠폰 사용: 클릭부터 게임 우편함까지
@@ -127,6 +128,9 @@ sequenceDiagram
 
     P->>W: POST /api/v1/coupons/redeem
     W->>DB: 코드·캠페인 조회(NoTracking), 기간·상태·중복 사전 검증
+    opt 받을 캐릭터를 고른 경우
+        W->>G: GET 캐릭터 목록 (이 계정의 캐릭터인지 확인, 트랜잭션 밖)
+    end
     rect rgba(47, 84, 200, 0.08)
     Note over W,DB: 하나의 트랜잭션
     W->>DB: [고유 코드] UPDATE ... SET RedeemedBy = @acc WHERE RedeemedBy IS NULL
@@ -228,6 +232,7 @@ erDiagram
         bigint CampaignId "AccountId 와 UNIQUE"
         bigint AccountId
         uniqueidentifier GrantRequestId UK
+        bigint CharacterId "NULL 이면 계정 보관함"
     }
     OutboxMessages {
         bigint Id PK
@@ -258,7 +263,7 @@ flowchart LR
     PR["Pull Request"] --> Fmt["dotnet format"] --> Build["빌드<br/>경고 = 에러"] --> Mig["마이그레이션<br/>누락 검사"] --> Tests["단위 + 통합 테스트<br/>(Testcontainers)"] --> Docker["Docker 빌드"]
     PR --> FE["Admin.Web<br/>lint · typecheck · test · build"] --> Docker
     PR --> AI["AI 1차 리뷰<br/>(Claude)"] --> Human["사람 리뷰<br/>CODEOWNERS"]
-    Docker --> Merge["main 머지"]
+    Docker --> Merge["develop 머지"]
     Human --> Merge
     Merge --> Push["이미지 푸시<br/>GHCR"] --> Bundle["EF 마이그레이션 번들<br/>+ idempotent SQL"] --> Staging["staging<br/>자동 배포"]
     Tag["v* 태그"] --> Prod["production<br/>승인 후 배포"]
@@ -278,6 +283,7 @@ DB 스키마 변경은 앱 배포와 분리된 단계에서 실행합니다. EF 
 | 데이터 접근 | CRUD는 EF Core, 락 힌트가 필요한 Outbox 선점만 Dapper. Repository 계층을 한 겹 더 두지 않음 | `DbContext`가 이미 Unit of Work이고, `IQueryable`을 감추면 쿼리 튜닝이 어려워짐 |
 | 감사 로그 | `SaveChangesInterceptor`가 같은 트랜잭션으로 기록. HiLo로 `INSERT` 전에 Id 확정 | 서비스 코드에서 직접 남기면 누락이 생김 |
 | 인증 | 두 화면 모두 BFF. 토큰은 HttpOnly 쿠키에만 두고 API는 서버에서 호출 | XSS로 토큰을 훔칠 수 없고, API 주소도 브라우저에 노출되지 않음 |
+| 받을 곳 | 계정 보관함 또는 캐릭터 하나. 캐릭터는 게임 서버에서 다시 읽어 이 계정의 것인지 확인하고, 사용 시점의 서버와 이름을 남김 | 요청의 캐릭터 ID를 믿으면 남의 캐릭터로 보상을 보낼 수 있고, 이름이 바뀐 뒤에도 CS가 당시 기록으로 답해야 함 |
 | 에러 | RFC 7807 ProblemDetails + 고정된 `code` + `traceId` | 클라이언트는 문구가 아닌 코드로 분기하고, CS는 추적 ID로 로그를 찾음 |
 | 계약 | 서버에 쿠폰 에러 코드가 추가됐는데 홈페이지 문구가 없으면 단위 테스트가 실패 | 화면 문구와 서버 계약이 어긋나지 않게 유지 |
 | 운영 UX | 발행 전 요약 확인, 제출 중 버튼 잠금, 모든 시각 KST, 감사 로그 원시값 변환 | 운영자는 되돌리기 어려운 작업을 하고, 감사 로그를 빠르게 읽어야 함 |
@@ -380,14 +386,15 @@ curl "localhost:5200/api/v1/coupon-redemptions?accountId=10001" -H "authorizatio
 
 | 테스트 | 개수 | 검증하는 것 |
 |---|---:|---|
-| .NET 단위 (`tests/GamePortal.UnitTests`) | 56 | 도메인 규칙과 경계값, 검증기, 캐시 폴백, 홈페이지 ↔ 서버 에러 코드 계약 |
-| .NET 통합 (`tests/GamePortal.IntegrationTests`) | 33 | Testcontainers로 띄운 실제 SQL Server에서 API와 Razor 홈페이지를 전 구간 실행 |
-| 운영툴 단위 (`npm test`) | 13 | KST 변환, 에러 매핑, 역할 규칙, 감사 로그 표시 변환 |
+| .NET 단위 (`tests/GamePortal.UnitTests`) | 64 | 도메인 규칙과 경계값, 검증기, 캐시 폴백, 게임 서버 캐릭터 조회 오류 처리, 홈페이지 ↔ 서버 에러 코드 계약 |
+| .NET 통합 (`tests/GamePortal.IntegrationTests`) | 42 | Testcontainers로 띄운 실제 SQL Server에서 API와 Razor 홈페이지를 전 구간 실행 |
+| 운영툴 단위 (`npm test`) | 14 | KST 변환, 에러 매핑, 역할 규칙, 감사 로그 표시 변환 |
 | 운영툴 E2E (`npm run e2e`) | 4 | 전체 스택을 띄운 상태에서 Playwright로 실행. 실제 Worker 전달까지 포함 |
 
 주요 보장:
 - 선착순 10개 쿠폰에 40명이 동시에 요청하면 **정확히 10명**만 성공하고, 나머지는 `COUPON_SOLD_OUT`을 받습니다.
 - 같은 계정이 동시에 5번 요청하면 1번만 성공하고, 나머지 요청의 수량 증가는 **롤백**됩니다.
+- 다른 계정의 캐릭터 번호로 요청하면 거절되고, 게임 서버에 연결할 수 없으면 503으로 끝나며 두 경우 모두 수량이 줄지 않습니다.
 - Worker 4대가 동시에 처리해도 모든 메시지가 **정확히 한 번만** 전달됩니다.
 - 운영자가 공지를 수정하면 홈페이지 캐시가 즉시 무효화되고, 감사 로그에는 바뀐 컬럼만 기록됩니다.
 - 발행 → 유저 사용 → CS 조회 "지급 완료" → 사용 중지 → 감사 로그 흐름을 실제 화면으로 검증합니다(E2E).
@@ -432,7 +439,8 @@ docs/                         설계 문서, 코드 리뷰 가이드, 스크린�
 |---|---|---|
 | GET | `/notices?category=&page=&pageSize=` | 공지 목록 (고정글 우선) |
 | GET | `/notices/{id}` | 공지 상세 |
-| POST | `/coupons/redeem` | 쿠폰 사용 (로그인 필요, 계정당 분당 10회) |
+| GET | `/characters` | 내 캐릭터 목록. 보상을 받을 곳을 고를 때 사용 (로그인 필요) |
+| POST | `/coupons/redeem` | 쿠폰 사용. `characterId`를 비우면 계정 보관함 (로그인 필요, 계정당 분당 10회) |
 | GET | `/coupons/history` | 내 쿠폰 사용 내역 (로그인 필요) |
 
 **Admin API** (`/api/v1`). 역할: `CS` < `Operator` < `Admin`

@@ -41,8 +41,12 @@ public sealed class PortalApiClient(HttpClient http, IHttpContextAccessor access
         }
     }
 
-    public Task<RedeemResult> RedeemCouponAsync(string code, CancellationToken cancellationToken)
-        => SendAsync<RedeemResult>(HttpMethod.Post, "api/v1/coupons/redeem", new { code }, authorize: true, cancellationToken);
+    /// <summary>쿠폰 사용. <c>characterId</c> 가 null 이면 계정 보관함으로 받는다.</summary>
+    public Task<RedeemResult> RedeemCouponAsync(string code, long? characterId, CancellationToken cancellationToken)
+        => SendAsync<RedeemResult>(HttpMethod.Post, "api/v1/coupons/redeem", new { code, characterId }, authorize: true, cancellationToken);
+
+    public Task<IReadOnlyList<GameCharacter>> GetMyCharactersAsync(CancellationToken cancellationToken)
+        => SendAsync<IReadOnlyList<GameCharacter>>(HttpMethod.Get, "api/v1/characters", body: null, authorize: true, cancellationToken);
 
     public Task<PagedResult<MyRedemption>> GetMyRedemptionsAsync(int page, CancellationToken cancellationToken)
         => SendAsync<PagedResult<MyRedemption>>(HttpMethod.Get, $"api/v1/coupons/history?page={page}&pageSize=10", body: null, authorize: true, cancellationToken);

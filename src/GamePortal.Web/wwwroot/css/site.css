@@ -406,6 +406,38 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .field-error { color: var(--danger); font-size: 14px; }
 .field-error:empty { display: none; }
 
+/* 받을 곳: 계정 보관함 또는 캐릭터 하나 */
+.recipient { margin: 8px 0 0; padding: 0; border: 0; display: grid; gap: 8px; min-width: 0; }
+.recipient legend { padding: 0; margin-bottom: 8px; }
+.recipient__option {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--ground-deep);
+    cursor: pointer;
+}
+.recipient__option:has(input:checked) { border-color: var(--gold); background: var(--surface-2); }
+.recipient__option:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
+.recipient__option input { accent-color: var(--gold); margin: 0; }
+.recipient__name { font-weight: 700; word-break: keep-all; }
+.recipient__server {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 1px 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 600;
+    vertical-align: 2px;
+}
+.recipient__meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.recipient__notice { margin: 0; color: var(--muted); font-size: 13px; }
+
 .result {
     margin-top: 20px;
     border-radius: var(--radius);
@@ -418,6 +450,8 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .result--ok h2 { color: var(--ok); }
 .result--error { border-color: color-mix(in srgb, var(--danger) 50%, transparent); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
 .result__campaign { color: var(--muted); }
+.result__recipient { margin-top: 8px !important; font-size: 14px; color: var(--muted); }
+.result__recipient strong { color: var(--ink); }
 .result__hint { color: var(--muted); font-size: 13px; margin-top: 12px !important; }
 .result__trace { color: var(--muted); font-size: 13px; margin-top: 8px !important; }
 .result code { color: var(--ink); }

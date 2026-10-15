@@ -99,6 +99,7 @@ flowchart LR
     AdminApi -- "bump cache version" --> Redis
     Worker -- "claim with UPDLOCK + READPAST" --> DB
     Worker -- "Idempotency-Key" --> Game
+    WebApi -. "character lookup (read-only)" .-> Game
 ```
 
 | Process | Responsibility | Scaling |
@@ -111,7 +112,7 @@ flowchart LR
 
 Why separate processes?
 - **Security boundary.** Ops APIs never share a process with public APIs, so a routing mistake can't expose them.
-- **Failure isolation.** Only the Worker talks to the game server, so a slow game server never slows down web responses.
+- **Failure isolation.** Only the Worker writes to the game server (item delivery), so a slow game server never holds up a redemption. Web.Api reads characters only when a player picks a recipient, with a 1 s timeout and a circuit breaker; if that fails, the account storage still works.
 - **Independent deploys.** An ops-tool feature doesn't require redeploying the servers that take player traffic.
 
 ### Coupon redemption: from the click to the in-game mailbox
@@ -127,6 +128,9 @@ sequenceDiagram
 
     P->>W: POST /api/v1/coupons/redeem
     W->>DB: Read code + campaign (no tracking), pre-validate period/status/duplicate
+    opt Player picked a character
+        W->>G: GET characters (verify ownership, outside the transaction)
+    end
     rect rgba(47, 84, 200, 0.08)
     Note over W,DB: Single transaction
     W->>DB: [unique code] UPDATE ... SET RedeemedBy = @acc WHERE RedeemedBy IS NULL
@@ -228,6 +232,7 @@ erDiagram
         bigint CampaignId "UK with AccountId"
         bigint AccountId
         uniqueidentifier GrantRequestId UK
+        bigint CharacterId "NULL means account storage"
     }
     OutboxMessages {
         bigint Id PK
@@ -258,7 +263,7 @@ flowchart LR
     PR["Pull request"] --> Fmt["dotnet format"] --> Build["Build<br/>warnings = errors"] --> Mig["Pending-migration<br/>check"] --> Tests["Unit + integration<br/>(Testcontainers)"] --> Docker["Docker build"]
     PR --> FE["Admin.Web<br/>lint · typecheck · test · build"] --> Docker
     PR --> AI["AI first-pass review<br/>(Claude)"] --> Human["Human review<br/>CODEOWNERS"]
-    Docker --> Merge["Merge to main"]
+    Docker --> Merge["Merge to develop"]
     Human --> Merge
     Merge --> Push["Push images<br/>GHCR"] --> Bundle["EF migration bundle<br/>+ idempotent SQL"] --> Staging["Staging<br/>auto deploy"]
     Tag["Tag v*"] --> Prod["Production<br/>manual approval"]
@@ -277,6 +282,7 @@ Schema changes run as their own pipeline step, using the EF migration bundle and
 | Integration | Transactional Outbox, idempotency key, two-level retry (Polly, then exponential backoff to a dead letter) | You can't have a distributed transaction between the web DB and the game server |
 | Data access | EF Core for CRUD. Dapper only for the lock-hinted Outbox claim. No extra repository layer | `DbContext` is already a unit of work. Hiding `IQueryable` makes query tuning harder |
 | Audit | A `SaveChangesInterceptor` writes audit rows in the same transaction. HiLo IDs make IDs known before `INSERT` | Hand-written audit calls get forgotten |
+| Recipient | Account storage or one character. The character is re-read from the game server to verify ownership, and its server and name at redemption time are stored | Trusting the client's character ID would let anyone send rewards to someone else's character, and CS must answer from the record even after a rename |
 | Auth | Both front ends are BFFs: tokens live only in HttpOnly cookies and APIs are called server-side | XSS can't steal tokens, and API hosts aren't exposed to browsers |
 | Errors | RFC 7807 ProblemDetails with a stable `code` and a `traceId` | Clients branch on codes, not message text. CS can quote the trace ID |
 | Contracts | A unit test fails if the server adds a coupon error code that the website has no message for | Keeps front-end copy in sync with server contracts |
@@ -380,14 +386,15 @@ Debugging works across services. Start `All services` in **Debug**, set breakpoi
 
 | Suite | Count | What it proves |
 |---|---:|---|
-| .NET unit (`tests/GamePortal.UnitTests`) | 56 | Domain rules and boundaries, validators, cache fail-open, front-end ↔ server error-code contract |
-| .NET integration (`tests/GamePortal.IntegrationTests`) | 33 | Real SQL Server via Testcontainers. APIs **and** the Razor website run end to end in process |
-| Admin.Web unit (`npm test`) | 13 | KST conversion, error mapping, role rules, audit value formatting |
+| .NET unit (`tests/GamePortal.UnitTests`) | 64 | Domain rules and boundaries, validators, cache fail-open, game-server character lookup errors, front-end ↔ server error-code contract |
+| .NET integration (`tests/GamePortal.IntegrationTests`) | 42 | Real SQL Server via Testcontainers. APIs **and** the Razor website run end to end in process |
+| Admin.Web unit (`npm test`) | 14 | KST conversion, error mapping, role rules, audit value formatting |
 | Admin.Web E2E (`npm run e2e`) | 4 | Playwright against the full running stack, including real Worker delivery |
 
 Highlights:
 - 40 concurrent players, 10 coupons: **exactly 10** succeed, and the rest get `COUPON_SOLD_OUT`.
 - The same account fires 5 concurrent requests: one succeeds, and the counter increments of the others are **rolled back**.
+- A request naming another account's character is rejected, and an unreachable game server ends in 503; neither touches the stock.
 - 4 Workers poll concurrently: every message is delivered **exactly once**.
 - An operator edits a notice: the website cache is invalidated immediately, and the audit log records only the changed columns.
 - Issue → player redeems → CS sees "지급 완료" → disable → audit log (E2E through the real UI).
@@ -432,7 +439,8 @@ docs/                         Architecture, code review guide, screenshots
 |---|---|---|
 | GET | `/notices?category=&page=&pageSize=` | Notice list (pinned first) |
 | GET | `/notices/{id}` | Notice detail |
-| POST | `/coupons/redeem` | Redeem a coupon (auth, 10/min per account) |
+| GET | `/characters` | My characters, for choosing where the reward goes (auth) |
+| POST | `/coupons/redeem` | Redeem a coupon. Omit `characterId` for account storage (auth, 10/min per account) |
 | GET | `/coupons/history` | My redemption history (auth) |
 
 **Admin API** (`/api/v1`). Roles: `CS` < `Operator` < `Admin`.

@@ -50,10 +50,14 @@ services:
     environment:
       <<: *portal-env
       Jwt__SigningKey: "local-dev-only-signing-key-change-me-0123456789"
+      # 쿠폰 보상을 받을 캐릭터 조회(읽기 전용). 지급은 Worker 가 한다.
+      GameServer__BaseUrl: "http://gameserver-mock:8080"
+      GameServer__ApiKey: "local-game-server-key"
     ports: ["5100:8080"]
     depends_on:
       admin-api: { condition: service_started }
       redis: { condition: service_healthy }
+      gameserver-mock: { condition: service_started }
 
   web:
     build: { context: ., args: { PROJECT: src/GamePortal.Web } }
