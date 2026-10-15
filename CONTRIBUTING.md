@@ -3,12 +3,12 @@
 ## 브랜치 전략 (GitHub Flow + 릴리즈 태그)
 
 ```
-main ──●────●────●────●──── (항상 배포 가능, 머지 시 staging 자동 배포)
-        \  /      \  /  \
-  feat/coupon-..   fix/..  v1.2.0 태그 → production (승인 후)
+develop ──●────●────●────●──── (항상 배포 가능, 머지 시 staging 자동 배포)
+           \  /      \  /  \
+     feat/coupon-..   fix/..  v1.2.0 태그 → production (승인 후)
 ```
 
-- `feat/*`, `fix/*`, `chore/*`, `refactor/*` 브랜치 → PR → `main`
+- `feat/*`, `fix/*`, `chore/*`, `refactor/*` 브랜치 → PR → `develop`
 - 긴급 수정도 동일한 PR 절차 (리뷰 1명, CI 필수). 파이프라인이 충분히 빨라야 이 규칙이 지켜진다.
 
 ## 커밋 메시지

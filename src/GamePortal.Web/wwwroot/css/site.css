@@ -112,6 +112,10 @@ a:focus-visible, button:focus-visible, input:focus-visible {
     .gnb__inner { height: auto; flex-wrap: wrap; row-gap: 0; padding-top: 12px; }
     .gnb__nav { order: 3; width: 100%; gap: 24px; }
     .gnb__nav a { padding-block: 10px; }
+    .gnb__inner { column-gap: 12px; }
+    .logo { font-size: 17px; letter-spacing: 0.1em; }
+    .gnb__account { gap: 8px; }
+    .gnb__user { display: none; } /* 닉네임은 쿠폰 화면에도 보이므로 좁은 화면에서는 버튼 자리를 내준다 */
 }
 
 /* ---------- Buttons ---------- */
@@ -136,6 +140,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .btn--ghost { border-color: var(--line); color: var(--ink); background: transparent; }
 .btn--ghost:hover { border-color: var(--gold); color: var(--gold-strong); }
 .btn--sm { height: 34px; padding-inline: 14px; font-size: 14px; }
+.btn--lg { height: 52px; padding-inline: 32px; font-size: 17px; box-shadow: 0 0 24px color-mix(in srgb, var(--gold) 35%, transparent); }
 .btn--block { width: 100%; }
 .link-button {
     background: none;
@@ -159,7 +164,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
     align-items: center;
     gap: 12px;
 }
-.alert-bar a { text-decoration: none; font-weight: 500; }
+.alert-bar a { text-decoration: none; font-weight: 500; word-break: keep-all; text-wrap: balance; }
 .alert-bar a:hover { text-decoration: underline; }
 
 /* ---------- Hero ---------- */
@@ -177,7 +182,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
     z-index: 1;
     max-width: 1080px;
     margin: 0 auto;
-    padding: 72px var(--gutter) 80px;
+    padding: 112px var(--gutter) 120px;
     display: grid;
     gap: 16px;
     justify-items: start;
@@ -199,40 +204,32 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 }
 .hero__lede { margin: 0; color: var(--muted); max-width: 46ch; }
 .hero__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
-/* 별이 떨어지는 하늘 — 이미지 없이 CSS 로만 */
-.hero__sky {
-    position: absolute;
-    inset: 0;
-    background-image:
-        radial-gradient(1.5px 1.5px at 62% 18%, var(--ink), transparent),
-        radial-gradient(1px 1px at 72% 42%, var(--ink), transparent),
-        radial-gradient(1.5px 1.5px at 84% 12%, var(--gold-strong), transparent),
-        radial-gradient(1px 1px at 91% 58%, var(--ink), transparent),
-        radial-gradient(1px 1px at 55% 70%, var(--muted), transparent),
-        radial-gradient(1.5px 1.5px at 96% 32%, var(--ink), transparent),
-        radial-gradient(1px 1px at 68% 84%, var(--muted), transparent);
-    opacity: .8;
+/* 키 비주얼: 그림은 오른쪽에 무게가 있고 왼쪽 하늘이 어둡다. 왼쪽부터 바탕색을 덮어 글자 대비를 지킨다. */
+.hero__art { position: absolute; inset: 0; }
+.hero__art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 70% 40%;
 }
-.hero__sky::after {
+.hero__art::after {
     content: "";
     position: absolute;
-    top: 14%;
-    right: 12%;
-    width: 180px;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--gold-strong));
-    transform: rotate(-28deg);
-    transform-origin: right center;
-    filter: drop-shadow(0 0 6px var(--gold));
-    animation: fall 7s ease-in-out infinite;
+    inset: 0;
+    background:
+        linear-gradient(90deg, var(--ground-deep) 0%, color-mix(in srgb, var(--ground-deep) 78%, transparent) 34%, transparent 62%),
+        linear-gradient(0deg, var(--ground) 0%, transparent 28%);
 }
-@keyframes fall {
-    0%, 70% { opacity: 0; translate: 0 0; }
-    75% { opacity: 1; }
-    100% { opacity: 0; translate: -160px 90px; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .hero__sky::after { animation: none; opacity: .7; }
+@media (max-width: 720px) {
+    /* 좁은 화면: 그림 위쪽에 첨탑과 별똥별을 보이고, 글자는 아래쪽 어두운 면에 둔다 */
+    .hero__inner { padding-top: 240px; padding-bottom: 48px; }
+    .hero__art img { object-position: 78% 0%; }
+    .hero__art::after {
+        background: linear-gradient(180deg, transparent 0%, transparent 26%, color-mix(in srgb, var(--ground-deep) 72%, transparent) 46%, var(--ground-deep) 68%);
+    }
+    /* 게임 시작을 한 줄 전체로, 나머지 둘은 그 아래 나란히 */
+    .hero__actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+    .hero__actions .btn--lg { grid-column: 1 / -1; }
 }
 
 /* ---------- Home grid ---------- */
@@ -469,3 +466,24 @@ a:focus-visible, button:focus-visible, input:focus-visible {
     gap: 8px 20px;
 }
 .footer p { margin: 0; color: var(--muted); font-size: 13px; }
+
+/* ---------- Play page ---------- */
+.play-page { max-width: 720px; display: grid; gap: 16px; }
+.play-page .page__lede { margin-bottom: 8px; }
+.play-card {
+    background: linear-gradient(160deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: grid;
+    gap: 12px;
+    justify-items: start;
+}
+.play-card h2 { margin: 0; font-size: 19px; }
+.play-card p { margin: 0; color: var(--muted); }
+.play-card__hint { font-size: 13px; }
+.section-heading { margin: 16px 0 12px; font-size: 19px; }
+.spec-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.spec-table th, .spec-table td { padding: 12px 10px; border-bottom: 1px solid var(--line); text-align: left; word-break: keep-all; }
+.spec-table thead th { color: var(--muted); font-weight: 500; }
+.spec-table tbody th { color: var(--muted); font-weight: 500; white-space: nowrap; }

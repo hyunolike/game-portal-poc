@@ -20,6 +20,8 @@
                 <a href="/coupon" class="@(Context.Request.Path.StartsWithSegments("/coupon") ? "is-active" : null)">쿠폰 등록</a>
             </nav>
             <div class="gnb__account">
+                @* 게임 홈페이지에서 가장 많이 누르는 버튼. 어느 화면에서든 같은 자리에 둔다. *@
+                <a class="btn btn--primary btn--sm gnb__play" href="/play">게임 시작</a>
                 @if (User.Identity?.IsAuthenticated == true)
                 {
                     <span class="gnb__user">@User.Identity.Name</span>
