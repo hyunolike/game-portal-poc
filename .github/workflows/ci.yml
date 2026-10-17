@@ -81,7 +81,7 @@ jobs:
 
       - name: Coverage PR comment
         if: ${{ github.event_name == 'pull_request' && !cancelled() }}
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           recreate: true
           path: code-coverage-results.md
